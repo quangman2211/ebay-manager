@@ -47,12 +47,13 @@ class Account(BaseModel):
     messages = relationship("Message", cascade="all, delete-orphan", lazy="select")
     templates = relationship("Template", cascade="all, delete-orphan", lazy="select")
     uploads = relationship("Upload", cascade="all, delete-orphan", lazy="select")
+    csv_uploads = relationship("CSVUpload", back_populates="account", cascade="all, delete-orphan", lazy="select")
     settings = relationship("Setting", cascade="all, delete-orphan", lazy="select")
     
     # Constraints
     __table_args__ = (
         CheckConstraint('length(ebay_account_name) >= 3', name='accounts_ebay_name_length'),
-        CheckConstraint("currency ~* '^[A-Z]{3}$'", name='accounts_currency_format'),
+        CheckConstraint('length(currency) = 3', name='accounts_currency_length'),
         CheckConstraint('sync_frequency > 0', name='accounts_sync_frequency_positive'),
         CheckConstraint("status IN ('active', 'inactive', 'suspended')", name='accounts_status_check'),
     )

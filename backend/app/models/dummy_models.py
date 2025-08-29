@@ -9,14 +9,6 @@ from .base import BaseModel
 
 # Placeholder models for relationships (will be properly implemented in later phases)
 
-class Order(BaseModel):
-    """Placeholder Order model"""
-    __tablename__ = "orders"
-    account_id = Column(Integer, ForeignKey("accounts.id"))
-    ebay_order_id = Column(String(50))
-    total_amount = Column(DECIMAL(10, 2))
-    order_status = Column(String(20), default='pending')
-    order_date = Column(DateTime(timezone=True))
 
 class Listing(BaseModel):
     """Placeholder Listing model"""

@@ -159,6 +159,13 @@ class RoleChecker:
 require_admin_role = RoleChecker(["admin"])
 allow_admin_and_user = RoleChecker(["admin", "user"])
 
+def require_role(role: str):
+    """
+    Require specific role for endpoint access
+    Following SOLID: Single Responsibility for role requirement
+    """
+    return RoleChecker([role])
+
 def get_user_accounts_filter(
     current_user: User = Depends(get_current_active_user)
 ) -> Optional[int]:

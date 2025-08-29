@@ -21,6 +21,9 @@ from app.core.exceptions import (
     starlette_http_exception_handler, generic_exception_handler
 )
 from app.api.auth import router as auth_router
+from app.api.csv import router as csv_router
+from app.api.orders import router as orders_router
+from app.api.jobs import router as jobs_router
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import psutil
@@ -56,6 +59,9 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(csv_router, prefix="/api/v1")
+app.include_router(orders_router, prefix="/api/v1")
+app.include_router(jobs_router, prefix="/api/v1")
 
 # Application startup time
 startup_time = datetime.utcnow()
@@ -205,6 +211,14 @@ async def startup_event():
     logger.info(f"Redis URL: {settings.redis_url_constructed}")
     logger.info("SOLID/YAGNI principles enforced")
     
+    # Initialize background job system
+    try:
+        from app.background_jobs import initialize_job_system
+        job_manager = initialize_job_system()
+        logger.info("Background job system initialized successfully")
+    except Exception as e:
+        logger.error(f"Background job system initialization error: {str(e)}")
+    
     # Ensure database tables exist
     try:
         from app.models import Base, engine
@@ -221,6 +235,11 @@ async def shutdown_event():
     """Application shutdown event"""
     logger.info("eBay Manager API shutting down...")
     try:
+        # Shutdown background job system
+        from app.background_jobs.core import job_manager
+        job_manager.shutdown()
+        logger.info("Background job system shut down")
+        
         # Clean up resources
         from app.models import engine
         engine.dispose()

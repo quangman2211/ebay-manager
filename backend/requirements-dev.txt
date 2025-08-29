@@ -1,0 +1,22 @@
+# Development Dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.2  # For testing FastAPI endpoints
+
+# Code Quality
+black==23.11.0
+isort==5.13.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Database Testing
+pytest-postgresql==5.0.0
+factory-boy==3.3.0
+
+# Debugging
+ipdb==0.13.13
+rich==13.7.0
+
+# Load Testing
+locust==2.17.0

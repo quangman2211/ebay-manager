@@ -81,12 +81,52 @@ Multi-account eBay management system without API usage, syncing data via CSV fil
 - [ ] Any hard-coded dependencies? (Dependency Inversion)
 - [ ] Any "just in case" features implemented? (YAGNI violation)
 - [ ] Can code be extended without modification? (Open/Closed)
+- [ ] Does the code have 90%+ test coverage?
+- [ ] Have all tests been run and passed?
+- [ ] Is the implementation phase-based without timeline dependencies?
+- [ ] Has the code been tested before git push?
 
 ### Enforcement Rules
 - **Comprehensive error handling** with proper exception hierarchy
 - **Logging and monitoring** with structured logging
 - **Unit tests** for all business logic (Test-Driven Development)
 - **No premature optimization** - measure first, then optimize
+
+## Development Workflow Rules (MANDATORY)
+
+### Planning Requirements
+- **Phase-based Planning**: Create plans by phases and tasks, NO timelines or dates
+- **Task-driven Approach**: Define clear deliverables for each phase
+- **No Time Estimates**: Focus on completion criteria, not deadlines
+- Example structure:
+  - Phase 1: Database Setup (Tasks: Create schema, Add migrations, Test connections)
+  - Phase 2: API Development (Tasks: Create endpoints, Add validation, Test APIs)
+  - Phase 3: Frontend (Tasks: Build components, Connect to API, Test UI)
+
+### Testing Requirements
+- **90% Test Coverage Minimum**: Every feature MUST achieve 90%+ test coverage
+- **Test Types Required**:
+  - Unit tests for all business logic
+  - Integration tests for API endpoints
+  - End-to-end tests for critical workflows
+- **Testing Before Merge**: No code proceeds without passing tests
+- **Test Documentation**: Each test must have clear description of what it validates
+
+### Git Workflow Rules
+- **Test First, Push Later**: Git push ONLY after all tests pass
+- **Commit Structure**:
+  1. Write code
+  2. Write tests
+  3. Run tests (must pass 90%+ coverage)
+  4. Fix any issues
+  5. Run tests again
+  6. ONLY THEN: git add, commit, push
+- **Commit Message Format**: `[PHASE] Task: Description (Test Coverage: XX%)`
+- **No Pushing**:
+  - Untested code
+  - Code with < 90% coverage
+  - Code with failing tests
+  - Work-in-progress without tests
 
 ## Data Models (Core Entities)
 - Account (eBay accounts)
@@ -105,16 +145,36 @@ Multi-account eBay management system without API usage, syncing data via CSV fil
 - Import history and rollback capability
 
 ## Planning Guidelines
-- When user requests planning, create separate file with format: `[plan-name]-plan.md`
-- Plan files stored in project root directory
-- Each plan file should include:
-  - Overview of task/feature
-  - Technical approach and architecture decisions
-  - Step-by-step implementation phases
-  - Dependencies and prerequisites
-  - Success criteria and testing strategy
-- Plan files help document decision-making process for future reference
-- Use naming convention: `tech-stack-plan.md`, `order-management-plan.md`, etc.
+
+### Plan Creation Rules
+- Create plans using phases and tasks, NOT timelines
+- Each phase must have:
+  - Clear objective
+  - List of specific tasks
+  - Success criteria (measurable)
+  - Testing requirements (90% coverage)
+  - NO dates, deadlines, or time estimates
+
+### Plan Structure Template
+```
+Phase X: [Phase Name]
+Objective: [What this phase achieves]
+Tasks:
+  1. [Specific task]
+  2. [Specific task]
+Success Criteria:
+  - [Measurable outcome]
+  - [Test coverage >= 90%]
+Testing:
+  - [Test type and scope]
+Dependencies:
+  - [What must be complete before this phase]
+```
+
+### File Naming Convention
+- Plans: `[feature]-plan.md` (e.g., `order-management-plan.md`)
+- Tests: `test_[module].py` or `[module].test.ts`
+- Coverage reports: `coverage-[feature].html`
 
 ## Commands to remember
 - `npm run dev` - Start development server

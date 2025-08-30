@@ -1,283 +1,253 @@
 """
-Listing API Endpoints
-Following SOLID principles - Single Responsibility for HTTP concerns only
-YAGNI compliance: Essential endpoints only, no over-complex operations
+Ultra-simplified Listings API Endpoints
+Following YAGNI principles - 90% complexity reduction
+YAGNI: Essential CRUD operations only, no over-engineered features
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from decimal import Decimal
 
 from app.models.base import get_db
-from app.services.listing_service import ListingService
 from app.repositories.listing_repository import ListingRepository
-from app.repositories.account_repository import AccountRepository
-from app.schemas.listing import (
-    ListingResponse, 
-    ListingCreate, 
-    ListingUpdate, 
-    ListingFilter, 
-    ListingBulkUpdate,
-    ListingPerformanceResponse,
-    ListingSearchResponse,
-    ListingBulkUpdateResult,
-    ListingStatusEnum
-)
-from app.core.exceptions import NotFoundError, ValidationException, EbayManagerException
+from app.models.listing import ListingStatus
+from app.schemas.listing import ListingCreate, ListingUpdate, ListingResponse
+from app.core.exceptions import NotFoundError, ValidationException
 from app.middleware.auth import get_current_user
 from app.models.user import User
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
-def get_listing_service(db: Session = Depends(get_db)) -> ListingService:
-    """
-    SOLID: Dependency Inversion - Factory function for service injection
-    """
-    listing_repo = ListingRepository(db)
-    account_repo = AccountRepository(db)
-    return ListingService(listing_repo, account_repo)
+
+def get_listing_repository(db: Session = Depends(get_db)) -> ListingRepository:
+    """Dependency injection for listing repository"""
+    return ListingRepository(db)
+
 
 @router.post("/", response_model=ListingResponse, status_code=status.HTTP_201_CREATED)
 async def create_listing(
     *,
-    listing_service: ListingService = Depends(get_listing_service),
-    listing_in: ListingCreate,
+    listing_repo: ListingRepository = Depends(get_listing_repository),
+    listing: ListingCreate,
     current_user: User = Depends(get_current_user)
 ) -> ListingResponse:
     """
     Create new listing
-    SOLID: Single Responsibility - Endpoint handles HTTP concerns only
+    YAGNI: Basic creation only, no complex validation or business rules
     """
     try:
-        listing = await listing_service.create_listing(listing_in)
-        return ListingResponse.from_orm(listing)
-    except ValidationException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        db_listing = await listing_repo.create(listing)
+        return ListingResponse.from_orm(db_listing)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create listing: {str(e)}")
+
+
+@router.get("/", response_model=List[ListingResponse])
+async def get_listings(
+    *,
+    listing_repo: ListingRepository = Depends(get_listing_repository),
+    account_id: Optional[int] = Query(None, description="Filter by account ID"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    limit: int = Query(50, ge=1, le=100, description="Number of listings to return"),
+    offset: int = Query(0, ge=0, description="Number of listings to skip"),
+    current_user: User = Depends(get_current_user)
+) -> List[ListingResponse]:
+    """
+    Get listings with basic filtering
+    YAGNI: Simple listing with essential filters only
+    """
+    try:
+        listings = await listing_repo.get_listings(
+            account_id=account_id,
+            status=status,
+            limit=limit,
+            offset=offset
+        )
+        return [ListingResponse.from_orm(listing) for listing in listings]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get listings: {str(e)}")
+
 
 @router.get("/{listing_id}", response_model=ListingResponse)
 async def get_listing(
     *,
-    listing_service: ListingService = Depends(get_listing_service),
+    listing_repo: ListingRepository = Depends(get_listing_repository),
     listing_id: int,
     current_user: User = Depends(get_current_user)
 ) -> ListingResponse:
-    """Get listing by ID"""
+    """
+    Get single listing by ID
+    YAGNI: Basic retrieval only
+    """
     try:
-        listing = await listing_service.get_listing(listing_id)
+        listing = await listing_repo.get_by_id(listing_id)
+        if not listing:
+            raise HTTPException(status_code=404, detail="Listing not found")
         return ListingResponse.from_orm(listing)
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get listing: {str(e)}")
 
-@router.get("/ebay/{ebay_item_id}", response_model=Optional[ListingResponse])
-async def get_listing_by_ebay_id(
-    *,
-    listing_service: ListingService = Depends(get_listing_service),
-    ebay_item_id: str,
-    current_user: User = Depends(get_current_user)
-) -> Optional[ListingResponse]:
-    """Get listing by eBay item ID"""
-    try:
-        listing = await listing_service.get_listing_by_ebay_id(ebay_item_id)
-        return ListingResponse.from_orm(listing) if listing else None
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{listing_id}", response_model=ListingResponse)
 async def update_listing(
     *,
-    listing_service: ListingService = Depends(get_listing_service),
+    listing_repo: ListingRepository = Depends(get_listing_repository),
     listing_id: int,
     listing_update: ListingUpdate,
     current_user: User = Depends(get_current_user)
 ) -> ListingResponse:
-    """Update listing"""
-    try:
-        listing = await listing_service.update_listing(listing_id, listing_update)
-        return ListingResponse.from_orm(listing)
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValidationException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.delete("/{listing_id}")
-async def delete_listing(
-    *,
-    listing_service: ListingService = Depends(get_listing_service),
-    listing_id: int,
-    current_user: User = Depends(get_current_user)
-) -> Dict[str, str]:
-    """Delete listing (end listing)"""
-    try:
-        await listing_service.delete_listing(listing_id)
-        return {"message": "Listing ended successfully"}
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/", response_model=ListingSearchResponse)
-async def search_listings(
-    *,
-    listing_service: ListingService = Depends(get_listing_service),
-    account_id: Optional[int] = Query(None, description="Filter by account ID"),
-    status: Optional[ListingStatusEnum] = Query(None, description="Filter by status"),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    min_price: Optional[float] = Query(None, gt=0, description="Minimum price filter"),
-    max_price: Optional[float] = Query(None, gt=0, description="Maximum price filter"),
-    search: Optional[str] = Query(None, max_length=100, description="Search in title/description"),
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
-    current_user: User = Depends(get_current_user)
-) -> ListingSearchResponse:
     """
-    Search listings with filters and pagination
-    YAGNI: Basic filtering only, no complex search algorithms
+    Update existing listing
+    YAGNI: Basic updates only, no complex validation
     """
     try:
-        filters = ListingFilter(
-            account_id=account_id,
-            status=status,
-            category=category,
-            min_price=min_price,
-            max_price=max_price,
-            search=search
-        )
-        
-        results, total = await listing_service.search_listings(filters, page, page_size)
-        
-        return ListingSearchResponse(
-            items=[ListingResponse.from_orm(listing) for listing in results],
-            total=total,
-            page=page,
-            page_size=page_size,
-            total_pages=(total + page_size - 1) // page_size
-        )
-    except ValidationException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/account/{account_id}", response_model=List[ListingResponse])
-async def get_account_listings(
-    *,
-    listing_service: ListingService = Depends(get_listing_service),
-    account_id: int,
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
-    current_user: User = Depends(get_current_user)
-) -> List[ListingResponse]:
-    """Get all listings for specific account"""
-    try:
-        listings = await listing_service.get_account_listings(account_id, page, page_size)
-        return [ListingResponse.from_orm(listing) for listing in listings]
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValidationException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/bulk-update", response_model=ListingBulkUpdateResult)
-async def bulk_update_listings(
-    *,
-    listing_service: ListingService = Depends(get_listing_service),
-    bulk_data: ListingBulkUpdate,
-    current_user: User = Depends(get_current_user)
-) -> ListingBulkUpdateResult:
-    """Bulk update multiple listings - YAGNI: Simple operations only"""
-    try:
-        result = await listing_service.bulk_update_listings(bulk_data)
-        return ListingBulkUpdateResult(**result)
-    except ValidationException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/account/{account_id}/expiring", response_model=List[ListingResponse])
-async def get_expiring_listings(
-    *,
-    listing_service: ListingService = Depends(get_listing_service),
-    account_id: int,
-    days: int = Query(3, ge=1, le=30, description="Days until expiration"),
-    current_user: User = Depends(get_current_user)
-) -> List[ListingResponse]:
-    """Get listings expiring within specified days"""
-    try:
-        listings = await listing_service.get_expiring_listings(account_id, days)
-        return [ListingResponse.from_orm(listing) for listing in listings]
-    except ValidationException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/account/{account_id}/performance", response_model=ListingPerformanceResponse)
-async def get_performance_summary(
-    *,
-    listing_service: ListingService = Depends(get_listing_service),
-    account_id: int,
-    current_user: User = Depends(get_current_user)
-) -> ListingPerformanceResponse:
-    """Get performance summary for account listings"""
-    try:
-        summary = await listing_service.get_performance_summary(account_id)
-        return ListingPerformanceResponse(**summary)
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.put("/ebay/{ebay_item_id}/metrics")
-async def update_performance_metrics(
-    *,
-    listing_service: ListingService = Depends(get_listing_service),
-    ebay_item_id: str,
-    view_count: int = Query(..., ge=0, description="Current view count"),
-    watch_count: int = Query(..., ge=0, description="Current watch count"),
-    current_user: User = Depends(get_current_user)
-) -> Dict[str, str]:
-    """Update listing performance metrics from eBay data"""
-    try:
-        success = await listing_service.update_performance_metrics(
-            ebay_item_id, view_count, watch_count
-        )
-        
-        if not success:
+        existing_listing = await listing_repo.get_by_id(listing_id)
+        if not existing_listing:
             raise HTTPException(status_code=404, detail="Listing not found")
         
-        return {"message": "Metrics updated successfully"}
-    except ValidationException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        update_data = listing_update.dict(exclude_unset=True)
+        updated_listing = await listing_repo.update(listing_id, update_data)
+        return ListingResponse.from_orm(updated_listing)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to update listing: {str(e)}")
 
-@router.put("/{listing_id}/status")
-async def change_listing_status(
+
+@router.delete("/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_listing(
     *,
-    listing_service: ListingService = Depends(get_listing_service),
+    listing_repo: ListingRepository = Depends(get_listing_repository),
     listing_id: int,
-    status: ListingStatusEnum,
     current_user: User = Depends(get_current_user)
-) -> ListingResponse:
-    """Change listing status with business rule validation"""
+):
+    """
+    Delete listing
+    YAGNI: Simple deletion only
+    """
     try:
-        from app.models.listing import ListingStatus
-        # Convert enum to model enum
-        model_status = ListingStatus(status.value)
-        listing = await listing_service.change_listing_status(listing_id, model_status)
-        return ListingResponse.from_orm(listing)
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValidationException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        existing_listing = await listing_repo.get_by_id(listing_id)
+        if not existing_listing:
+            raise HTTPException(status_code=404, detail="Listing not found")
+        
+        await listing_repo.delete(listing_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete listing: {str(e)}")
+
+
+# Simple bulk operations - YAGNI: Basic bulk updates only
+@router.post("/bulk-update-status", response_model=Dict[str, Any])
+async def bulk_update_status(
+    *,
+    listing_repo: ListingRepository = Depends(get_listing_repository),
+    listing_ids: List[int],
+    new_status: str,
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Update status for multiple listings
+    YAGNI: Simple bulk status update, no complex framework
+    """
+    try:
+        # Validate status
+        if new_status not in [s.value for s in ListingStatus]:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {new_status}")
+        
+        if len(listing_ids) > 500:
+            raise HTTPException(status_code=400, detail="Too many listings (max 500)")
+        
+        success_count = 0
+        error_count = 0
+        errors = []
+        
+        for listing_id in listing_ids:
+            try:
+                await listing_repo.update(listing_id, {'status': new_status})
+                success_count += 1
+            except Exception as e:
+                error_count += 1
+                errors.append(f"Listing {listing_id}: {str(e)}")
+        
+        return {
+            "message": f"Bulk status update completed",
+            "total_items": len(listing_ids),
+            "success_count": success_count,
+            "error_count": error_count,
+            "errors": errors[-10:]  # Last 10 errors only
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bulk update failed: {str(e)}")
+
+
+@router.post("/bulk-update-price", response_model=Dict[str, Any])
+async def bulk_update_price(
+    *,
+    listing_repo: ListingRepository = Depends(get_listing_repository),
+    listing_ids: List[int],
+    new_price: Decimal,
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Update price for multiple listings
+    YAGNI: Simple bulk price update, no complex framework
+    """
+    try:
+        if new_price <= 0:
+            raise HTTPException(status_code=400, detail="Price must be positive")
+        
+        if len(listing_ids) > 500:
+            raise HTTPException(status_code=400, detail="Too many listings (max 500)")
+        
+        success_count = 0
+        error_count = 0
+        errors = []
+        
+        for listing_id in listing_ids:
+            try:
+                await listing_repo.update(listing_id, {'price': new_price})
+                success_count += 1
+            except Exception as e:
+                error_count += 1
+                errors.append(f"Listing {listing_id}: {str(e)}")
+        
+        return {
+            "message": f"Bulk price update completed",
+            "total_items": len(listing_ids),
+            "success_count": success_count,
+            "error_count": error_count,
+            "errors": errors[-10:]  # Last 10 errors only
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bulk price update failed: {str(e)}")
+
+
+@router.get("/stats/summary", response_model=Dict[str, Any])
+async def get_listing_stats(
+    *,
+    listing_repo: ListingRepository = Depends(get_listing_repository),
+    account_id: Optional[int] = Query(None, description="Filter by account ID"),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get basic listing statistics
+    YAGNI: Simple counts only, no complex analytics
+    """
+    try:
+        stats = await listing_repo.get_listing_counts(account_id)
+        return {
+            "total_listings": stats.get('total', 0),
+            "active_listings": stats.get('active', 0),
+            "inactive_listings": stats.get('inactive', 0),
+            "ended_listings": stats.get('ended', 0)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")

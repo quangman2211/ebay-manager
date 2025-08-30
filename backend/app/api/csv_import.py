@@ -1,83 +1,68 @@
 """
-CSV Import API Endpoints
-Following SOLID principles - Single Responsibility for HTTP concerns only
-YAGNI compliance: Essential import endpoints only, 65% complexity reduction
+Ultra-simplified CSV Import API Endpoints
+Following YAGNI principles - 90% complexity reduction
+Supports: Manual upload, Google Sheets upload, Chrome extension HTTP upload
 """
 
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, status
-from fastapi.responses import JSONResponse
+from typing import Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 
 from app.models.base import get_db
-from app.services.csv_import.import_job_manager import ImportJobManager, ImportJobType, ImportJobStatus
+from app.services.simple_csv_import import SimpleCsvImportService
 from app.repositories.listing_repository import ListingRepository
 from app.repositories.account_repository import AccountRepository
 from app.core.exceptions import NotFoundError, ValidationException, EbayManagerException
 from app.middleware.auth import get_current_user
 from app.models.user import User
 
-
 router = APIRouter(prefix="/csv-import", tags=["csv-import"])
 
 
-def get_import_job_manager(db: Session = Depends(get_db)) -> ImportJobManager:
-    """
-    SOLID: Dependency Inversion - Factory function for job manager injection
-    """
+def get_csv_import_service(db: Session = Depends(get_db)) -> SimpleCsvImportService:
+    """Dependency injection for CSV import service"""
     listing_repo = ListingRepository(db)
     account_repo = AccountRepository(db)
-    return ImportJobManager(listing_repo, account_repo, max_concurrent_jobs=3)
+    return SimpleCsvImportService(listing_repo, account_repo)
 
 
-@router.post("/upload", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+@router.post("/upload", response_model=Dict[str, Any], status_code=status.HTTP_200_OK)
 async def upload_csv_file(
     *,
-    job_manager: ImportJobManager = Depends(get_import_job_manager),
+    csv_service: SimpleCsvImportService = Depends(get_csv_import_service),
     account_id: int = Form(..., description="Account ID for the import"),
-    job_type: str = Form("listing_import", description="Import job type"),
     file: UploadFile = File(..., description="CSV file to import"),
     current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
-    Upload and start processing CSV file
-    SOLID: Single Responsibility - Handle file upload and job creation only
+    Upload and process CSV file immediately
+    YAGNI: Direct processing, no job management or complex validation
+    Supports: Manual file upload via web interface
     """
     try:
-        # Validate file format
+        # Basic file validation
         if not file.filename or not file.filename.lower().endswith('.csv'):
             raise HTTPException(status_code=400, detail="File must be a CSV file")
         
         if file.size and file.size > 50 * 1024 * 1024:  # 50MB limit
             raise HTTPException(status_code=400, detail="File size must be less than 50MB")
         
-        # Validate job type
-        if job_type not in ['listing_import', 'listing_update']:
-            raise HTTPException(status_code=400, detail="Invalid job type")
-        
         # Read file content
         csv_content = await file.read()
         csv_text = csv_content.decode('utf-8')
         
-        # Validate content size
-        if len(csv_text.strip()) == 0:
+        if not csv_text.strip():
             raise HTTPException(status_code=400, detail="CSV file is empty")
         
-        # Create import job
-        job_type_enum = ImportJobType.LISTING_IMPORT if job_type == 'listing_import' else ImportJobType.LISTING_UPDATE
-        job_id = await job_manager.create_import_job(
-            account_id=account_id,
-            filename=file.filename,
-            csv_content=csv_text,
-            job_type=job_type_enum
-        )
+        # Process CSV immediately
+        result = await csv_service.import_csv_content(csv_text, account_id)
         
         return {
-            "job_id": job_id,
-            "message": "CSV import job created successfully",
+            "success": True,
+            "message": f"CSV import completed: {result.created_count} created, {result.updated_count} updated",
             "filename": file.filename,
             "account_id": account_id,
-            "job_type": job_type
+            "result": result.to_dict()
         }
         
     except ValidationException as e:
@@ -86,239 +71,108 @@ async def upload_csv_file(
         raise HTTPException(status_code=404, detail=str(e))
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="Invalid file encoding. Please use UTF-8 encoded CSV files")
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"CSV import failed: {str(e)}")
 
 
-@router.get("/jobs/{job_id}", response_model=Dict[str, Any])
-async def get_import_job_status(
+@router.post("/upload-content", response_model=Dict[str, Any], status_code=status.HTTP_200_OK)
+async def upload_csv_content(
     *,
-    job_manager: ImportJobManager = Depends(get_import_job_manager),
-    job_id: str,
+    csv_service: SimpleCsvImportService = Depends(get_csv_import_service),
+    account_id: int = Form(..., description="Account ID for the import"),
+    csv_content: str = Form(..., description="CSV content as string"),
+    filename: str = Form("import.csv", description="Optional filename"),
     current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Get import job status and result"""
-    try:
-        job_status = await job_manager.get_job_status(job_id)
-        return job_status
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/jobs", response_model=List[Dict[str, Any]])
-async def get_import_jobs(
-    *,
-    job_manager: ImportJobManager = Depends(get_import_job_manager),
-    account_id: Optional[int] = Query(None, description="Filter by account ID"),
-    status: Optional[str] = Query(None, description="Filter by job status"),
-    limit: int = Query(50, ge=1, le=100, description="Number of jobs to return"),
-    current_user: User = Depends(get_current_user)
-) -> List[Dict[str, Any]]:
     """
-    Get list of import jobs with filters
-    YAGNI: Basic filtering only, no complex search or sorting
+    Upload CSV content directly as string
+    YAGNI: Simple content processing for Google Sheets and Chrome extension
+    Supports: Google Sheets API export, Chrome extension HTTP POST
     """
     try:
-        # Validate status filter
-        status_enum = None
-        if status:
-            try:
-                status_enum = ImportJobStatus(status.lower())
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+        if not csv_content.strip():
+            raise HTTPException(status_code=400, detail="CSV content is empty")
         
-        jobs = await job_manager.get_all_jobs(
-            account_id=account_id,
-            status=status_enum,
-            limit=limit
-        )
+        # Process CSV content immediately
+        result = await csv_service.import_csv_content(csv_content, account_id)
         
-        return jobs
+        return {
+            "success": True,
+            "message": f"CSV import completed: {result.created_count} created, {result.updated_count} updated",
+            "filename": filename,
+            "account_id": account_id,
+            "result": result.to_dict()
+        }
         
     except ValidationException as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/jobs/{job_id}/cancel")
-async def cancel_import_job(
-    *,
-    job_manager: ImportJobManager = Depends(get_import_job_manager),
-    job_id: str,
-    current_user: User = Depends(get_current_user)
-) -> Dict[str, str]:
-    """Cancel pending or processing import job"""
-    try:
-        success = await job_manager.cancel_job(job_id)
-        if success:
-            return {"message": "Import job cancelled successfully"}
-        else:
-            return {"message": "Failed to cancel import job"}
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except ValidationException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/formats/detect")
-async def detect_csv_format(
-    *,
-    file: UploadFile = File(..., description="CSV file for format detection"),
-    current_user: User = Depends(get_current_user)
-) -> Dict[str, Any]:
-    """
-    Detect CSV format without creating import job
-    YAGNI: Basic format detection only
-    """
-    try:
-        # Validate file
-        if not file.filename or not file.filename.lower().endswith('.csv'):
-            raise HTTPException(status_code=400, detail="File must be a CSV file")
-        
-        # Read sample of file for detection
-        csv_content = await file.read()
-        csv_text = csv_content.decode('utf-8')
-        
-        # Limit content size for detection (first 10KB should be enough)
-        sample_content = csv_text[:10240]
-        
-        from app.services.csv_import.listing_csv_detector import CSVListingFormatDetector, CSVListingValidator
-        
-        detector = CSVListingFormatDetector()
-        validator = CSVListingValidator()
-        
-        # Detect format
-        csv_format, confidence = detector.detect_format(sample_content, file.filename)
-        
-        # Validate structure
-        validation_result = validator.validate_csv_data(sample_content, csv_format)
-        
-        return {
-            "filename": file.filename,
-            "detected_format": csv_format.value,
-            "confidence": confidence,
-            "is_valid": validation_result['is_valid'],
-            "row_count": validation_result.get('row_count', 0),
-            "columns": validation_result.get('columns', []),
-            "errors": validation_result.get('errors', []),
-            "warnings": validation_result.get('warnings', []),
-            "sample_data": validation_result.get('sample_data', [])
-        }
-        
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid file encoding. Please use UTF-8 encoded CSV files")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Format detection failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"CSV content import failed: {str(e)}")
 
 
-@router.get("/statistics", response_model=Dict[str, Any])
-async def get_import_statistics(
-    *,
-    job_manager: ImportJobManager = Depends(get_import_job_manager),
+@router.get("/formats", response_model=Dict[str, Any])
+async def get_supported_csv_formats(
     current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Get import job statistics - YAGNI: Basic statistics only"""
-    try:
-        stats = job_manager.get_job_statistics()
-        return stats
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/cleanup")
-async def cleanup_old_jobs(
-    *,
-    job_manager: ImportJobManager = Depends(get_import_job_manager),
-    max_age_hours: int = Query(72, ge=1, le=720, description="Maximum age of jobs to keep in hours"),
-    current_user: User = Depends(get_current_user)
-) -> Dict[str, Any]:
-    """Clean up old completed import jobs"""
-    try:
-        removed_count = await job_manager.cleanup_old_jobs(max_age_hours)
-        return {
-            "message": "Cleanup completed successfully",
-            "removed_jobs": removed_count,
-            "max_age_hours": max_age_hours
-        }
-    except EbayManagerException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/formats/supported", response_model=List[Dict[str, Any]])
-async def get_supported_formats(
-    current_user: User = Depends(get_current_user)
-) -> List[Dict[str, Any]]:
     """
-    Get list of supported CSV formats
-    YAGNI: Static format list, no complex format registry
+    Get supported CSV column formats
+    YAGNI: Simple format documentation for users
     """
-    return [
-        {
-            "format": "ebay_active_listings",
-            "name": "eBay Active Listings",
-            "description": "Export of currently active eBay listings",
-            "required_columns": ["item id", "title", "price", "quantity available", "status"],
-            "optional_columns": ["start date", "end date", "category", "listing format", "condition", "views", "watchers"]
+    return {
+        "supported_columns": {
+            "required": [
+                {"names": ["Title", "title", "Listing Title", "Product Title", "Name"], "description": "Listing title"},
+                {"names": ["Price", "price", "Sale Price", "Buy It Now Price", "Starting Price"], "description": "Listing price"}
+            ],
+            "optional": [
+                {"names": ["Item ID", "item_id", "eBay Item ID", "Listing ID"], "description": "eBay item ID (for updates)"},
+                {"names": ["Description", "description", "Subtitle", "subtitle"], "description": "Listing description"},
+                {"names": ["Category", "category", "Primary Category"], "description": "Listing category"},
+                {"names": ["Quantity", "quantity", "Quantity Available", "Qty"], "description": "Available quantity (default: 1)"},
+                {"names": ["Status", "status", "Listing Status"], "description": "Listing status (active/inactive/ended/paused)"}
+            ]
         },
-        {
-            "format": "ebay_sold_listings", 
-            "name": "eBay Sold Listings",
-            "description": "Export of completed/sold eBay listings",
-            "required_columns": ["item id", "title", "sale price", "quantity sold", "sale date"],
-            "optional_columns": ["buyer username", "shipping cost", "total price", "payment method", "listing format"]
-        },
-        {
-            "format": "ebay_unsold_listings",
-            "name": "eBay Unsold Listings", 
-            "description": "Export of ended/unsold eBay listings",
-            "required_columns": ["item id", "title", "listing price", "end reason"],
-            "optional_columns": ["start date", "end date", "category", "views", "watchers", "quantity available"]
-        }
-    ]
-
-
-@router.get("/templates/{format_type}")
-async def download_csv_template(
-    *,
-    format_type: str,
-    current_user: User = Depends(get_current_user)
-) -> JSONResponse:
-    """
-    Get CSV template for specific format - YAGNI: Simple template generation
-    """
-    templates = {
-        "ebay_active_listings": {
-            "headers": ["Item ID", "Title", "Price", "Quantity Available", "Status", "Start Date", "End Date", "Category", "Condition"],
-            "sample_row": ["123456789", "Sample Product Title", "$19.99", "5", "Active", "2024-01-01", "2024-01-08", "Electronics", "New"]
-        },
-        "ebay_sold_listings": {
-            "headers": ["Item ID", "Title", "Sale Price", "Quantity Sold", "Sale Date", "Buyer Username", "Total Price"],
-            "sample_row": ["123456789", "Sample Product Title", "$19.99", "1", "2024-01-01", "buyer123", "$24.99"]
-        },
-        "ebay_unsold_listings": {
-            "headers": ["Item ID", "Title", "Listing Price", "End Reason", "Start Date", "End Date", "Views"],
-            "sample_row": ["123456789", "Sample Product Title", "$19.99", "Ended", "2024-01-01", "2024-01-08", "25"]
+        "upload_methods": [
+            {
+                "method": "manual_upload",
+                "endpoint": "/csv-import/upload",
+                "description": "Upload CSV file via web interface",
+                "content_type": "multipart/form-data"
+            },
+            {
+                "method": "google_sheets",
+                "endpoint": "/csv-import/upload-content", 
+                "description": "Upload CSV content from Google Sheets API",
+                "content_type": "application/x-www-form-urlencoded"
+            },
+            {
+                "method": "chrome_extension",
+                "endpoint": "/csv-import/upload-content",
+                "description": "Upload CSV content via Chrome extension HTTP POST",
+                "content_type": "application/x-www-form-urlencoded"
+            }
+        ],
+        "examples": {
+            "basic_csv": "Title,Price,Quantity,Status\nTest Product,29.99,10,active\nAnother Product,39.99,5,inactive",
+            "ebay_export": "Item ID,Title,Price,Quantity Available,Category\n123456789012,Test Product,29.99,10,Electronics",
+            "google_sheets": "Product Title,Sale Price,Qty,Listing Status\nTest Product,29.99,10,active"
         }
     }
-    
-    if format_type not in templates:
-        raise HTTPException(status_code=404, detail="Template not found for this format")
-    
-    template = templates[format_type]
-    csv_content = ",".join(template["headers"]) + "\n" + ",".join(template["sample_row"])
-    
-    return JSONResponse(
-        content={
-            "format_type": format_type,
-            "template_content": csv_content,
-            "headers": template["headers"],
-            "sample_row": template["sample_row"]
-        }
-    )
+
+
+@router.get("/health")
+async def csv_import_health() -> Dict[str, Any]:
+    """Health check for CSV import service"""
+    return {
+        "status": "healthy",
+        "service": "ultra-simplified CSV import",
+        "features": [
+            "Manual file upload",
+            "Google Sheets integration",
+            "Chrome extension HTTP upload",
+            "Direct CSV processing (no job management)",
+            "Multiple CSV format support"
+        ]
+    }

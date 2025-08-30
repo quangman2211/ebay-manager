@@ -28,7 +28,6 @@ from app.api.listings import router as listings_router
 from app.api.products import router as products_router
 from app.api.suppliers import router as suppliers_router
 from app.api.csv_import import router as csv_import_router
-from app.api.bulk_operations import router as bulk_operations_router
 from app.api.v1.endpoints.gmail_integration import router as gmail_router
 from app.api.v1.endpoints.ebay_message_import import router as ebay_message_router
 from app.api.v1.endpoints.communication import router as communication_router
@@ -74,7 +73,6 @@ app.include_router(listings_router, prefix="/api/v1")
 app.include_router(products_router, prefix="/api/v1")
 app.include_router(suppliers_router, prefix="/api/v1")
 app.include_router(csv_import_router, prefix="/api/v1")
-app.include_router(bulk_operations_router, prefix="/api/v1")
 app.include_router(gmail_router, prefix="/api/v1/gmail", tags=["Gmail Integration"])
 app.include_router(ebay_message_router, prefix="/api/v1/ebay-messages", tags=["eBay Message Import"])
 app.include_router(communication_router, prefix="/api/v1", tags=["Communication Center"])

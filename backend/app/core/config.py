@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     SMTP_USERNAME: str = Field(default="", env="SMTP_USERNAME")
     SMTP_PASSWORD: str = Field(default="", env="SMTP_PASSWORD")
     
+    # Gmail API Configuration
+    GMAIL_CREDENTIALS_PATH: str = Field(default="./credentials/gmail_credentials.json", env="GMAIL_CREDENTIALS_PATH")
+    GMAIL_TOKEN_PATH: str = Field(default="./credentials/tokens", env="GMAIL_TOKEN_PATH")
+    
     @validator("CORS_ORIGINS", pre=True)
     def parse_cors_origins(cls, v):
         """Parse CORS origins from string or list"""
@@ -178,6 +182,16 @@ class Settings(BaseSettings):
         """Get upload path as Path object"""
         return Path(self.UPLOAD_PATH)
     
+    @property
+    def gmail_credentials_path_obj(self) -> Path:
+        """Get Gmail credentials path as Path object"""
+        return Path(self.GMAIL_CREDENTIALS_PATH)
+    
+    @property
+    def gmail_token_path_obj(self) -> Path:
+        """Get Gmail token path as Path object"""
+        return Path(self.GMAIL_TOKEN_PATH)
+    
     def ensure_directories(self):
         """
         Ensure required directories exist
@@ -188,6 +202,10 @@ class Settings(BaseSettings):
         
         # Create log directory  
         self.log_file_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Create Gmail credentials directory
+        self.gmail_credentials_path_obj.parent.mkdir(parents=True, exist_ok=True)
+        self.gmail_token_path_obj.mkdir(parents=True, exist_ok=True)
     
     class Config:
         env_file = ".env"

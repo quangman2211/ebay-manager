@@ -49,6 +49,9 @@ class Account(BaseModel):
     uploads = relationship("Upload", cascade="all, delete-orphan", lazy="select")
     csv_uploads = relationship("CSVUpload", back_populates="account", cascade="all, delete-orphan", lazy="select")
     settings = relationship("Setting", cascade="all, delete-orphan", lazy="select")
+    email_threads = relationship("EmailThread", back_populates="account", cascade="all, delete-orphan", lazy="select")
+    message_threads = relationship("MessageThread", back_populates="account", cascade="all, delete-orphan", lazy="select")
+    ebay_messages = relationship("EbayMessage", back_populates="account", cascade="all, delete-orphan", lazy="select")
     
     # Constraints
     __table_args__ = (

@@ -20,6 +20,11 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.1.2
 python-multipart==0.0.6
 
+# Google APIs (for Gmail integration)
+google-auth==2.23.4
+google-auth-oauthlib==1.1.0
+google-api-python-client==2.108.0
+
 # File Processing
 pandas==2.1.4
 openpyxl==3.1.2

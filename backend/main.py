@@ -23,7 +23,6 @@ from app.core.exceptions import (
 from app.api.auth import router as auth_router
 from app.api.csv import router as csv_router
 from app.api.orders import router as orders_router
-from app.api.jobs import router as jobs_router
 from app.api.listings import router as listings_router
 from app.api.products import router as products_router
 from app.api.suppliers import router as suppliers_router
@@ -68,7 +67,6 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(csv_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
-app.include_router(jobs_router, prefix="/api/v1")
 app.include_router(listings_router, prefix="/api/v1")
 app.include_router(products_router, prefix="/api/v1")
 app.include_router(suppliers_router, prefix="/api/v1")

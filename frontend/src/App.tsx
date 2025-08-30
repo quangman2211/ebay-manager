@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar } from '@mui/material';
@@ -76,8 +76,8 @@ const AppContent: React.FC = () => {
         {navigation.map((item) => (
           <ListItem key={item.name} disablePadding>
             <ListItemButton 
-              component="a" 
-              href={item.path}
+              component={Link} 
+              to={item.path}
               selected={window.location.pathname === item.path}
             >
               <ListItemIcon>

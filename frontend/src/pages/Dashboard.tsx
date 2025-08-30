@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { accountsAPI, ordersAPI, listingsAPI } from '../services/api';
+import { dashboardStyles } from '../styles/pages/dashboardStyles';
 import type { Account, Order, Listing } from '../types';
 
 interface DashboardStats {
@@ -115,7 +116,7 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+      <Box sx={dashboardStyles.loadingContainer}>
         <Typography>Loading...</Typography>
       </Box>
     );
@@ -123,12 +124,12 @@ const Dashboard: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={dashboardStyles.headerContainer}>
         <Typography variant="h4" component="h1">
           Dashboard
         </Typography>
         
-        <FormControl sx={{ minWidth: 200 }}>
+        <FormControl sx={dashboardStyles.accountSelect}>
           <InputLabel>eBay Account</InputLabel>
           <Select
             value={selectedAccount}
@@ -144,7 +145,7 @@ const Dashboard: React.FC = () => {
         </FormControl>
       </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={dashboardStyles.gridContainer.spacing}>
         {/* Order Stats */}
         <Grid item xs={12} sm={6} md={3}>
           <Card>
@@ -172,7 +173,7 @@ const Dashboard: React.FC = () => {
                 label={stats.pendingOrders > 0 ? 'Action Needed' : 'Up to Date'}
                 color={stats.pendingOrders > 0 ? 'warning' : 'success'}
                 size="small"
-                sx={{ mt: 1 }}
+                sx={dashboardStyles.statusChip}
               />
             </CardContent>
           </Card>

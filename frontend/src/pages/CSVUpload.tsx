@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { CloudUpload, CheckCircle, Error } from '@mui/icons-material';
 import { accountsAPI, csvAPI } from '../services/api';
+import { csvUploadStyles } from '../styles/pages/csvUploadStyles';
 import type { Account } from '../types';
 
 interface UploadResult {
@@ -87,13 +88,13 @@ const CSVUpload: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" component="h1" sx={{ mb: 3 }}>
+      <Typography variant="h4" component="h1" sx={csvUploadStyles.pageTitle}>
         CSV Upload
       </Typography>
 
       {/* Upload Configuration */}
-      <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
-        <FormControl sx={{ minWidth: 200 }}>
+      <Box sx={csvUploadStyles.configContainer}>
+        <FormControl sx={csvUploadStyles.accountSelect}>
           <InputLabel>eBay Account</InputLabel>
           <Select
             value={selectedAccount}
@@ -108,7 +109,7 @@ const CSVUpload: React.FC = () => {
           </Select>
         </FormControl>
 
-        <FormControl sx={{ minWidth: 150 }}>
+        <FormControl sx={csvUploadStyles.dataTypeSelect}>
           <InputLabel>Data Type</InputLabel>
           <Select
             value={dataType}
@@ -122,37 +123,25 @@ const CSVUpload: React.FC = () => {
       </Box>
 
       {/* Upload Area */}
-      <Card sx={{ mb: 3 }}>
+      <Card sx={csvUploadStyles.uploadCard}>
         <CardContent>
           <Box
             {...getRootProps()}
-            sx={{
-              border: '2px dashed #ccc',
-              borderRadius: 2,
-              p: 4,
-              textAlign: 'center',
-              cursor: selectedAccount && !uploading ? 'pointer' : 'not-allowed',
-              backgroundColor: isDragActive ? '#f5f5f5' : 'transparent',
-              opacity: selectedAccount && !uploading ? 1 : 0.5,
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                backgroundColor: selectedAccount && !uploading ? '#f9f9f9' : 'transparent',
-              },
-            }}
+            sx={csvUploadStyles.dropzoneArea(!!selectedAccount, uploading, isDragActive)}
           >
             <input {...getInputProps()} />
             
             {uploading ? (
               <Box>
-                <CircularProgress sx={{ mb: 2 }} />
+                <CircularProgress sx={csvUploadStyles.progressSpinner} />
                 <Typography variant="h6">
                   Uploading CSV file...
                 </Typography>
               </Box>
             ) : (
               <Box>
-                <CloudUpload sx={{ fontSize: 48, color: '#ccc', mb: 2 }} />
-                <Typography variant="h6" sx={{ mb: 1 }}>
+                <CloudUpload sx={csvUploadStyles.cloudIcon} />
+                <Typography variant="h6" sx={csvUploadStyles.uploadTitle}>
                   {isDragActive
                     ? 'Drop the CSV file here'
                     : 'Drag & drop a CSV file here, or click to select'
@@ -162,7 +151,7 @@ const CSVUpload: React.FC = () => {
                   Only CSV files are accepted
                 </Typography>
                 {!selectedAccount && (
-                  <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                  <Typography variant="body2" color="error" sx={csvUploadStyles.accountErrorText}>
                     Please select an eBay account first
                   </Typography>
                 )}
@@ -177,14 +166,14 @@ const CSVUpload: React.FC = () => {
         <Alert 
           severity={uploadResult.success ? 'success' : 'error'}
           icon={uploadResult.success ? <CheckCircle /> : <Error />}
-          sx={{ mb: 2 }}
+          sx={csvUploadStyles.resultAlert}
         >
-          <Typography variant="body1" sx={{ mb: uploadResult.details ? 1 : 0 }}>
+          <Typography variant="body1" sx={csvUploadStyles.resultMessage(!!uploadResult.details)}>
             {uploadResult.message}
           </Typography>
           
           {uploadResult.details && (
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Box sx={csvUploadStyles.chipContainer}>
               <Chip 
                 label={`${uploadResult.details.inserted_count} new records`}
                 color="success"
@@ -210,14 +199,14 @@ const CSVUpload: React.FC = () => {
       {/* Instructions */}
       <Card>
         <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>
+          <Typography variant="h6" sx={csvUploadStyles.instructionsTitle}>
             Instructions
           </Typography>
           
-          <Typography variant="body2" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={csvUploadStyles.instructionText}>
             <strong>For Orders:</strong>
           </Typography>
-          <Typography variant="body2" sx={{ mb: 2, ml: 2 }}>
+          <Typography variant="body2" sx={csvUploadStyles.instructionDetails}>
             • Export orders from eBay Seller Hub → Orders → Export to CSV
             <br />
             • The system will automatically detect duplicate orders and skip them
@@ -225,10 +214,10 @@ const CSVUpload: React.FC = () => {
             • New orders will be imported with "pending" status
           </Typography>
           
-          <Typography variant="body2" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={csvUploadStyles.instructionText}>
             <strong>For Listings:</strong>
           </Typography>
-          <Typography variant="body2" sx={{ ml: 2 }}>
+          <Typography variant="body2" sx={csvUploadStyles.finalInstructionText}>
             • Export listings from eBay Seller Hub → Listings → Export to CSV
             <br />
             • The system will update inventory levels and listing information

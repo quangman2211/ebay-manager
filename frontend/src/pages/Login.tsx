@@ -11,6 +11,7 @@ import {
   Container,
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
+import { loginStyles } from '../styles/pages/loginStyles';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -42,10 +43,10 @@ const Login: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 8 }}>
+    <Container sx={loginStyles.container}>
       <Card>
-        <CardContent sx={{ p: 4 }}>
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
+        <CardContent sx={loginStyles.cardContent}>
+          <Box sx={loginStyles.headerContainer}>
             <Typography variant="h4" component="h1" gutterBottom>
               eBay Manager
             </Typography>
@@ -55,7 +56,7 @@ const Login: React.FC = () => {
           </Box>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={loginStyles.errorAlert}>
               {error}
             </Alert>
           )}
@@ -87,13 +88,13 @@ const Login: React.FC = () => {
               variant="contained"
               size="large"
               disabled={loading}
-              sx={{ mt: 3 }}
+              sx={loginStyles.loginButton}
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </Box>
 
-          <Box sx={{ mt: 2, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+          <Box sx={loginStyles.demoContainer}>
             <Typography variant="body2" color="textSecondary">
               Demo credentials:
             </Typography>

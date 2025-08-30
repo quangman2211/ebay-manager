@@ -42,9 +42,6 @@ class Order(BaseModel):
     status = Column(String(20), nullable=False, default=OrderStatus.PENDING.value, index=True)
     order_date = Column(DateTime, nullable=False, default=datetime.utcnow)
     
-    # Relationships
-    account = relationship("Account", back_populates="orders")
-    
     # Simple indexes only
     __table_args__ = (
         Index('idx_order_account_status', 'account_id', 'status'),

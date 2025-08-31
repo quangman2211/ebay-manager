@@ -3,6 +3,7 @@ import { Box, useTheme, useMediaQuery } from '@mui/material';
 import ModernSidebar from './ModernSidebar';
 import HeaderWithSearch from './HeaderWithSearch';
 import { useSidebarState } from '../../hooks/useSidebarState';
+import { layoutStyles } from '../../styles';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -26,12 +27,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const currentDrawerWidth = isMobile ? 0 : (isExpanded ? drawerWidth : collapsedWidth);
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      height: '100%', 
-      backgroundColor: '#f8fafc',
-      overflow: 'hidden'
-    }}>
+    <Box sx={layoutStyles.container}>
       {/* Modern Sidebar - no overflow */}
       <ModernSidebar
         drawerWidth={drawerWidth}
@@ -67,13 +63,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         />
 
         {/* Page content - scrollable area */}
-        <Box sx={{ 
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          p: 3, 
-          mt: 8 
-        }}>
+        <Box sx={layoutStyles.pageContent}>
           {children}
         </Box>
       </Box>

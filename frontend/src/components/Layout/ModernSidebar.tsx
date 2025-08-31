@@ -21,6 +21,7 @@ import {
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { sidebarStyles } from '../../styles';
 
 interface ModernSidebarProps {
   drawerWidth: number;
@@ -42,6 +43,7 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
   const theme = useTheme();
   
   const currentWidth = isExpanded ? drawerWidth : collapsedWidth;
+  const styles = sidebarStyles;
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
@@ -54,31 +56,18 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
   const isActive = (path: string) => location.pathname === path;
 
   const drawerContent = (
-    <Box sx={{ 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      background: '#f8fafc',
+    <Box sx={{
+      ...styles.container,
       transition: theme.transitions.create('width', {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.enteringScreen,
       }),
     }}>
       {/* Logo Section */}
-      <Box sx={{ 
-        p: isExpanded ? 3 : 1.5, 
-        borderBottom: '1px solid #e2e8f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: isExpanded ? 'flex-start' : 'center',
-        minHeight: 64,
-      }}>
+      <Box sx={isExpanded ? styles.logoSection.expanded : styles.logoSection.collapsed}>
         {isExpanded ? (
-          <Typography variant="h6" sx={{ 
-            fontWeight: 600, 
-            color: '#1e293b', 
-            letterSpacing: '-0.025em',
-            opacity: 1,
+          <Typography variant="h6" sx={{
+            ...styles.logoText.expanded,
             transition: theme.transitions.create('opacity', {
               delay: theme.transitions.duration.shorter,
             }),
@@ -86,25 +75,14 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
             eBay Manager
           </Typography>
         ) : (
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            width: 40,
-            height: 40,
-            borderRadius: 1,
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            fontSize: '1rem',
-            fontWeight: 700,
-          }}>
+          <Box sx={styles.logoIcon}>
             EB
           </Box>
         )}
       </Box>
 
       {/* Navigation */}
-      <Box sx={{ flex: 1, px: isExpanded ? 1.5 : 0.5, py: 2 }}>
+      <Box sx={isExpanded ? styles.navigation.expanded : styles.navigation.collapsed}>
         <List sx={{ gap: 0.5 }}>
           {menuItems.map((item) => {
             const menuItem = (
@@ -112,42 +90,27 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
                 key={item.text}
                 onClick={() => navigate(item.path)}
                 sx={{
-                  borderRadius: 1,
-                  cursor: 'pointer',
-                  mb: 0.5,
-                  px: isExpanded ? 1.5 : 1,
-                  py: 1.25,
-                  backgroundColor: isActive(item.path) ? '#3b82f6' : 'transparent',
-                  color: isActive(item.path) ? 'white' : '#475569',
+                  ...styles.menuItem.base,
+                  ...(isExpanded ? styles.menuItem.expanded : styles.menuItem.collapsed),
+                  ...(isActive(item.path) ? styles.menuItem.active : styles.menuItem.inactive),
                   '&:hover': {
-                    backgroundColor: isActive(item.path) ? '#3b82f6' : '#e2e8f0',
+                    backgroundColor: isActive(item.path) ? styles.menuItem.hover.active : styles.menuItem.hover.inactive,
                   },
                   transition: theme.transitions.create(['background-color', 'padding'], {
                     duration: theme.transitions.duration.shorter,
                   }),
-                  justifyContent: isExpanded ? 'flex-start' : 'center',
-                  minHeight: 48,
                 }}
               >
-                <ListItemIcon
-                  sx={{
-                    color: 'inherit',
-                    minWidth: isExpanded ? 32 : 'auto',
-                    mr: isExpanded ? 2 : 0,
-                    justifyContent: 'center',
-                    '& .MuiSvgIcon-root': { fontSize: 20 },
-                  }}
-                >
+                <ListItemIcon sx={isExpanded ? styles.menuIcon.expanded : styles.menuIcon.collapsed}>
                   {item.icon}
                 </ListItemIcon>
                 {isExpanded && (
                   <ListItemText
                     primary={item.text}
                     sx={{
+                      ...styles.menuText,
                       '& .MuiTypography-root': {
-                        fontSize: '0.875rem',
-                        fontWeight: 500,
-                        opacity: 1,
+                        ...styles.menuText['& .MuiTypography-root'],
                         transition: theme.transitions.create('opacity', {
                           delay: theme.transitions.duration.shorter,
                         }),
@@ -168,47 +131,23 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
       </Box>
 
       {/* User Profile Section */}
-      <Box sx={{ 
-        p: isExpanded ? 2.5 : 1, 
-        borderTop: '1px solid #e2e8f0', 
-        backgroundColor: '#ffffff',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: isExpanded ? 'flex-start' : 'center',
-      }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: isExpanded ? 1.5 : 0, 
-          mb: isExpanded ? 1.5 : 1,
-          justifyContent: 'center',
-        }}>
-          <Avatar sx={{ 
-            width: 36, 
-            height: 36, 
-            backgroundColor: '#3b82f6',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-          }}>
+      <Box sx={isExpanded ? styles.profileSection.expanded : styles.profileSection.collapsed}>
+        <Box sx={isExpanded ? styles.profileContainer.expanded : styles.profileContainer.collapsed}>
+          <Avatar sx={styles.avatar}>
             A
           </Avatar>
           {isExpanded && (
             <Box>
-              <Typography variant="body2" sx={{ 
-                fontWeight: 600, 
-                color: '#1e293b', 
-                fontSize: '0.875rem',
-                opacity: 1,
+              <Typography variant="body2" sx={{
+                ...styles.profileText.username,
                 transition: theme.transitions.create('opacity', {
                   delay: theme.transitions.duration.shorter,
                 }),
               }}>
                 Admin User
               </Typography>
-              <Typography variant="caption" sx={{ 
-                color: '#64748b', 
-                fontSize: '0.75rem',
-                opacity: 1,
+              <Typography variant="caption" sx={{
+                ...styles.profileText.role,
                 transition: theme.transitions.create('opacity', {
                   delay: theme.transitions.duration.shorter,
                 }),
@@ -223,13 +162,7 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
             label="30 accounts"
             size="small"
             sx={{
-              backgroundColor: '#f1f5f9',
-              color: '#475569',
-              border: '1px solid #e2e8f0',
-              fontSize: '0.6875rem',
-              fontWeight: 500,
-              height: '24px',
-              opacity: 1,
+              ...styles.profileChip,
               transition: theme.transitions.create('opacity', {
                 delay: theme.transitions.duration.shorter,
               }),
@@ -252,9 +185,9 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
           'aria-labelledby': 'mobile-navigation-drawer',
         }}
         sx={{
-          display: { xs: 'block', md: 'none' },
+          ...styles.drawer.mobile,
           '& .MuiDrawer-paper': { 
-            boxSizing: 'border-box', 
+            ...styles.drawer.mobile['& .MuiDrawer-paper'],
             width: drawerWidth,
             transition: theme.transitions.create('width', {
               easing: theme.transitions.easing.sharp,
@@ -275,13 +208,10 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
       <Drawer
         variant="permanent"
         sx={{
-          display: { xs: 'none', md: 'block' },
+          ...styles.drawer.desktop,
           '& .MuiDrawer-paper': { 
-            boxSizing: 'border-box', 
+            ...styles.drawer.desktop['& .MuiDrawer-paper'],
             width: currentWidth,
-            border: 'none',
-            borderRight: '1px solid #e2e8f0',
-            overflowX: 'hidden',
             transition: theme.transitions.create('width', {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,

@@ -11,16 +11,10 @@ import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Listings from './pages/Listings';
 import CSVUpload from './pages/CSVUpload';
+import { themeConfig } from './styles';
 
 const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
+  palette: themeConfig.palette,
 });
 
 

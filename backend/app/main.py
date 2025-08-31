@@ -7,10 +7,11 @@ from typing import List
 import logging
 
 from app.database import get_db
-from app.models import User, Account, CSVData, OrderStatus
+from app.models import User, Account, CSVData, OrderStatus, UserActivity
 from app.schemas import (
     UserCreate, UserResponse, Token, AccountCreate, AccountResponse,
-    CSVUpload, OrderResponse, ListingResponse, OrderStatusUpdate, DataType
+    CSVUpload, OrderResponse, ListingResponse, OrderStatusUpdate, DataType,
+    ProfileResponse, ProfileUpdate, UserActivityResponse, UserStatsResponse
 )
 from app.auth import (
     authenticate_user, create_access_token, get_current_active_user,
@@ -381,6 +382,191 @@ def global_search(
     
     # Limit results to 20 items
     return results[:20]
+
+
+# Profile endpoints
+@app.get("/api/v1/user/profile", response_model=ProfileResponse)
+def get_profile(current_user: User = Depends(get_current_active_user)):
+    """Get complete user profile information"""
+    return current_user
+
+
+@app.put("/api/v1/user/profile", response_model=ProfileResponse)
+def update_profile(
+    profile_data: ProfileUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update user profile information"""
+    # Update profile fields
+    if profile_data.bio is not None:
+        current_user.bio = profile_data.bio
+    if profile_data.phone is not None:
+        current_user.phone = profile_data.phone
+    
+    # Log the profile update activity
+    activity = UserActivity(
+        user_id=current_user.id,
+        activity_type="profile_update",
+        description="Updated profile information"
+    )
+    db.add(activity)
+    
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@app.post("/api/v1/user/avatar")
+def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Upload profile picture"""
+    import os
+    import uuid
+    from PIL import Image
+    
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif']
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only JPEG, PNG, and GIF are allowed."
+        )
+    
+    # Generate unique filename
+    file_extension = file.filename.split('.')[-1].lower()
+    filename = f"{uuid.uuid4()}.{file_extension}"
+    
+    # Create upload directory if it doesn't exist
+    upload_dir = "uploads/avatars"
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, filename)
+    
+    try:
+        # Save and process image
+        with open(file_path, "wb") as buffer:
+            content = file.file.read()
+            buffer.write(content)
+        
+        # Resize image to 300x300
+        with Image.open(file_path) as img:
+            img = img.convert('RGB')
+            img = img.resize((300, 300), Image.Resampling.LANCZOS)
+            img.save(file_path, 'JPEG', quality=85)
+        
+        # Update user avatar URL
+        avatar_url = f"/api/v1/uploads/avatars/{filename}"
+        current_user.avatar_url = avatar_url
+        
+        # Log the avatar upload activity
+        activity = UserActivity(
+            user_id=current_user.id,
+            activity_type="avatar_upload",
+            description="Uploaded new profile picture"
+        )
+        db.add(activity)
+        
+        db.commit()
+        
+        return {"message": "Avatar uploaded successfully", "avatar_url": avatar_url}
+        
+    except Exception as e:
+        # Clean up file if processing failed
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process image: {str(e)}"
+        )
+
+
+@app.get("/api/v1/user/activity", response_model=List[UserActivityResponse])
+def get_activity_history(
+    limit: int = 50,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get user activity timeline"""
+    activities = db.query(UserActivity).filter(
+        UserActivity.user_id == current_user.id
+    ).order_by(UserActivity.created_at.desc()).limit(limit).all()
+    
+    return activities
+
+
+@app.get("/api/v1/user/stats", response_model=UserStatsResponse)
+def get_user_stats(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get user statistics"""
+    from sqlalchemy import func, and_
+    from datetime import datetime, timedelta
+    
+    # Get accounts managed
+    if current_user.role == "admin":
+        accounts_managed = db.query(Account).filter(Account.is_active == True).count()
+    else:
+        accounts_managed = db.query(Account).filter(
+            Account.user_id == current_user.id,
+            Account.is_active == True
+        ).count()
+    
+    # Get accessible account IDs
+    if current_user.role == "admin":
+        account_ids = [acc.id for acc in db.query(Account).filter(Account.is_active == True).all()]
+    else:
+        account_ids = [acc.id for acc in current_user.accounts if acc.is_active]
+    
+    # Orders processed
+    orders_processed = db.query(CSVData).filter(
+        CSVData.data_type == "order",
+        CSVData.account_id.in_(account_ids) if account_ids else False
+    ).count()
+    
+    # Listings created
+    listings_created = db.query(CSVData).filter(
+        CSVData.data_type == "listing",
+        CSVData.account_id.in_(account_ids) if account_ids else False
+    ).count()
+    
+    # Recent logins (last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    recent_logins = db.query(UserActivity).filter(
+        UserActivity.user_id == current_user.id,
+        UserActivity.activity_type == "login",
+        UserActivity.created_at >= thirty_days_ago
+    ).count()
+    
+    # Total CSV uploads
+    total_csv_uploads = db.query(UserActivity).filter(
+        UserActivity.user_id == current_user.id,
+        UserActivity.activity_type == "csv_upload"
+    ).count()
+    
+    # Last activity
+    last_activity_record = db.query(UserActivity).filter(
+        UserActivity.user_id == current_user.id
+    ).order_by(UserActivity.created_at.desc()).first()
+    
+    last_activity = last_activity_record.created_at if last_activity_record else None
+    
+    return UserStatsResponse(
+        accounts_managed=accounts_managed,
+        orders_processed=orders_processed,
+        listings_created=listings_created,
+        recent_logins=recent_logins,
+        total_csv_uploads=total_csv_uploads,
+        last_activity=last_activity
+    )
+
+
+# Static file serving for uploaded avatars
+from fastapi.staticfiles import StaticFiles
+app.mount("/api/v1/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 if __name__ == "__main__":

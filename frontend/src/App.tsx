@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Listings from './pages/Listings';
 import CSVUpload from './pages/CSVUpload';
+import Profile from './pages/Profile';
 
 const theme = createTheme({
   palette: {
@@ -62,6 +63,7 @@ const AppContent: React.FC = () => {
         <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
         <Route path="/listings" element={<PrivateRoute><Listings /></PrivateRoute>} />
         <Route path="/upload" element={<PrivateRoute><CSVUpload /></PrivateRoute>} />
+        <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

@@ -16,6 +16,7 @@ import {
   Receipt as ReceiptIcon,
   Inventory as InventoryIcon,
   UploadFile as UploadFileIcon,
+  Person as PersonIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -39,6 +40,7 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
     { text: 'Orders', icon: <ReceiptIcon />, path: '/orders' },
     { text: 'Listings', icon: <InventoryIcon />, path: '/listings' },
     { text: 'CSV Upload', icon: <UploadFileIcon />, path: '/upload' },
+    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
 

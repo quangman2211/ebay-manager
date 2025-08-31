@@ -136,3 +136,36 @@ class ListingResponse(BaseModel):
 class CSVUpload(BaseModel):
     account_id: int
     data_type: DataType
+
+
+# Profile-related schemas
+class ProfileUpdate(BaseModel):
+    bio: Optional[str] = None
+    phone: Optional[str] = None
+
+
+class ProfileResponse(UserResponse):
+    bio: Optional[str] = None
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
+    last_login: Optional[datetime] = None
+
+
+class UserActivityResponse(BaseModel):
+    id: int
+    activity_type: str
+    description: Optional[str] = None
+    activity_metadata: Optional[Dict[str, Any]] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserStatsResponse(BaseModel):
+    accounts_managed: int
+    orders_processed: int
+    listings_created: int
+    recent_logins: int
+    total_csv_uploads: int
+    last_activity: Optional[datetime] = None

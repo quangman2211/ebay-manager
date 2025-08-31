@@ -14,8 +14,15 @@ class User(Base):
     role = Column(String, default="staff")  # 'admin' or 'staff'
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Profile fields
+    bio = Column(Text)
+    phone = Column(String)
+    avatar_url = Column(String)
+    last_login = Column(DateTime(timezone=True))
 
     accounts = relationship("Account", back_populates="user")
+    activities = relationship("UserActivity", back_populates="user")
 
 
 class Account(Base):
@@ -57,3 +64,16 @@ class OrderStatus(Base):
 
     csv_data = relationship("CSVData", back_populates="order_status")
     updated_by_user = relationship("User")
+
+
+class UserActivity(Base):
+    __tablename__ = "user_activities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    activity_type = Column(String, nullable=False, index=True)  # login, logout, csv_upload, order_update, etc.
+    description = Column(Text)
+    activity_metadata = Column(JSON)  # Additional context data
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="activities")

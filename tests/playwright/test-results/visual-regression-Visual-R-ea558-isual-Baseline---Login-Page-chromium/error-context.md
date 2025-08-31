@@ -1,0 +1,77 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - list [ref=e8]:
+      - listitem [ref=e9]:
+        - link "Dashboard" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12] [cursor=pointer]
+          - generic [ref=e15] [cursor=pointer]: Dashboard
+      - listitem [ref=e16]:
+        - link "Orders" [ref=e17] [cursor=pointer]:
+          - /url: /orders
+          - img [ref=e19] [cursor=pointer]
+          - generic [ref=e22] [cursor=pointer]: Orders
+      - listitem [ref=e23]:
+        - link "Listings" [ref=e24] [cursor=pointer]:
+          - /url: /listings
+          - img [ref=e26] [cursor=pointer]
+          - generic [ref=e29] [cursor=pointer]: Listings
+      - listitem [ref=e30]:
+        - link "CSV Upload" [ref=e31] [cursor=pointer]:
+          - /url: /upload
+          - img [ref=e33] [cursor=pointer]
+          - generic [ref=e36] [cursor=pointer]: CSV Upload
+  - main [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e40]:
+        - generic [ref=e41]: eBay Manager
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - img [ref=e44]
+            - paragraph [ref=e46]: admin
+            - generic [ref=e48]: admin
+          - button "Logout" [ref=e49] [cursor=pointer]:
+            - img [ref=e51] [cursor=pointer]
+            - text: Logout
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - heading "Dashboard" [level=1] [ref=e56]
+          - generic [ref=e57]:
+            - generic [ref=e58]: eBay Account
+            - generic [ref=e59]:
+              - combobox [ref=e60] [cursor=pointer]: Test Account
+              - textbox
+              - img
+              - group:
+                - generic: eBay Account
+        - generic [ref=e61]:
+          - generic [ref=e64]:
+            - paragraph [ref=e65]: Total Orders
+            - heading "4" [level=4] [ref=e66]
+          - generic [ref=e69]:
+            - paragraph [ref=e70]: Pending Orders
+            - heading "3" [level=4] [ref=e71]
+            - generic [ref=e73]: Action Needed
+          - generic [ref=e76]:
+            - paragraph [ref=e77]: Shipped Orders
+            - heading "0" [level=4] [ref=e78]
+          - generic [ref=e81]:
+            - paragraph [ref=e82]: Completed Orders
+            - heading "1" [level=4] [ref=e83]
+          - generic [ref=e86]:
+            - paragraph [ref=e87]: Total Listings
+            - heading "115" [level=4] [ref=e88]
+          - generic [ref=e91]:
+            - paragraph [ref=e92]: Active Listings
+            - heading "115" [level=4] [ref=e93]
+          - generic [ref=e96]:
+            - paragraph [ref=e97]: Today's Revenue
+            - heading "$0.00" [level=4] [ref=e98]
+          - generic [ref=e101]:
+            - paragraph [ref=e102]: Account Status
+            - heading "Admin Access" [level=6] [ref=e103]
+            - paragraph [ref=e104]: Managing 7 account(s)
+```

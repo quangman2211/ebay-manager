@@ -1,0 +1,86 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - list [ref=e8]:
+        - listitem [ref=e9]:
+          - link [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img [ref=e12] [cursor=pointer]
+            - generic [ref=e15] [cursor=pointer]: Dashboard
+        - listitem [ref=e16]:
+          - link [ref=e17] [cursor=pointer]:
+            - /url: /orders
+            - img [ref=e19] [cursor=pointer]
+            - generic [ref=e22] [cursor=pointer]: Orders
+        - listitem [ref=e23]:
+          - link [ref=e24] [cursor=pointer]:
+            - /url: /listings
+            - img [ref=e26] [cursor=pointer]
+            - generic [ref=e29] [cursor=pointer]: Listings
+        - listitem [ref=e30]:
+          - link [ref=e31] [cursor=pointer]:
+            - /url: /upload
+            - img [ref=e33] [cursor=pointer]
+            - generic [ref=e36] [cursor=pointer]: CSV Upload
+    - main [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e40]:
+          - generic [ref=e41]: eBay Manager
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - img [ref=e44]
+              - paragraph [ref=e46]: admin
+              - generic [ref=e48]: admin
+            - button [ref=e49] [cursor=pointer]:
+              - img [ref=e51] [cursor=pointer]
+              - text: Logout
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - heading [level=1] [ref=e56]: Dashboard
+            - generic [ref=e57]:
+              - generic [ref=e58]: eBay Account
+              - generic [ref=e59]:
+                - combobox [expanded] [ref=e60] [cursor=pointer]: Test Account
+                - textbox: "1"
+                - img
+                - group:
+                  - generic: eBay Account
+          - generic [ref=e61]:
+            - generic [ref=e64]:
+              - paragraph [ref=e65]: Total Orders
+              - heading [level=4] [ref=e66]: "4"
+            - generic [ref=e69]:
+              - paragraph [ref=e70]: Pending Orders
+              - heading [level=4] [ref=e71]: "3"
+              - generic [ref=e73]: Action Needed
+            - generic [ref=e76]:
+              - paragraph [ref=e77]: Shipped Orders
+              - heading [level=4] [ref=e78]: "0"
+            - generic [ref=e81]:
+              - paragraph [ref=e82]: Completed Orders
+              - heading [level=4] [ref=e83]: "1"
+            - generic [ref=e86]:
+              - paragraph [ref=e87]: Total Listings
+              - heading [level=4] [ref=e88]: "115"
+            - generic [ref=e91]:
+              - paragraph [ref=e92]: Active Listings
+              - heading [level=4] [ref=e93]: "115"
+            - generic [ref=e96]:
+              - paragraph [ref=e97]: Today's Revenue
+              - heading [level=4] [ref=e98]: $0.00
+            - generic [ref=e101]:
+              - paragraph [ref=e102]: Account Status
+              - heading [level=6] [ref=e103]: Admin Access
+              - paragraph [ref=e104]: Managing 7 account(s)
+  - listbox [ref=e107]:
+    - option "Test Account" [active] [selected] [ref=e108] [cursor=pointer]: Test Account
+    - option "Books & Education Store" [ref=e109] [cursor=pointer]: Books & Education Store
+    - option "Spider Farmer Equipment" [ref=e110] [cursor=pointer]: Spider Farmer Equipment
+    - option "Mixed Inventory Hub" [ref=e111] [cursor=pointer]: Mixed Inventory Hub
+    - option "Test eBay Account" [ref=e112] [cursor=pointer]: Test eBay Account
+    - option "E2E Test Account" [ref=e113] [cursor=pointer]: E2E Test Account
+    - option "E2E Test Account" [ref=e114] [cursor=pointer]: E2E Test Account
+```

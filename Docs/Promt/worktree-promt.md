@@ -1,4 +1,4 @@
-I want to develop two features in parallel for my expense tracker app using Git worktrees:
+I want to develop two features in parallel for my EBAY MANAGER APP using Git worktrees:
 
 1. Data export system (CSV, PDF, JSON exports)
 2. Analytics dashboard (charts, insights, trends)

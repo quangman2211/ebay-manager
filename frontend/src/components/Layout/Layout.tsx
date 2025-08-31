@@ -19,28 +19,42 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
-      {/* Modern Sidebar */}
+    <Box sx={{ 
+      display: 'flex', 
+      height: '100%', 
+      backgroundColor: '#f8fafc',
+      overflow: 'hidden'
+    }}>
+      {/* Modern Sidebar - no overflow */}
       <ModernSidebar
         drawerWidth={drawerWidth}
         mobileOpen={mobileOpen}
         onDrawerToggle={handleDrawerToggle}
       />
 
-      {/* Main content area */}
+      {/* Main content area - single scroll container */}
       <Box
         component="main"
         sx={{
-          flexGrow: 1,
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
           width: { xs: '100%', sm: `calc(100% - ${drawerWidth}px)` },
           ml: { xs: 0, sm: `${drawerWidth}px` },
+          overflow: 'hidden'
         }}
       >
-        {/* Header with Search */}
+        {/* Header with Search - fixed */}
         <HeaderWithSearch drawerWidth={isMobile ? 0 : drawerWidth} />
 
-        {/* Page content */}
-        <Box sx={{ p: 3, mt: 8 }}>
+        {/* Page content - scrollable area */}
+        <Box sx={{ 
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          p: 3, 
+          mt: 8 
+        }}>
           {children}
         </Box>
       </Box>

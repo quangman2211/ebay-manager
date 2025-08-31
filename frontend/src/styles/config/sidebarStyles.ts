@@ -220,9 +220,16 @@ export const sidebarStyles = {
   drawer: {
     mobile: {
       display: { xs: 'block', md: 'none' },
+      zIndex: 1300, // Ensure mobile drawer appears above other content
       '& .MuiDrawer-paper': {
         boxSizing: 'border-box',
         width: 260, // Using dimension constant implicitly
+      },
+      '& .MuiModal-root': {
+        zIndex: 1300, // Ensure modal backdrop is visible
+      },
+      '& .MuiBackdrop-root': {
+        backgroundColor: 'rgba(0, 0, 0, 0.5)', // Visible backdrop
       },
     },
     desktop: {

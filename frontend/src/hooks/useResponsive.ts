@@ -35,8 +35,8 @@ export const useResponsive = (): ResponsiveState => {
     if (screenWidth <= 375) return 'mini';  // Mini browser mode
     if (screenWidth < 600) return 'xs';     // Extra small
     if (screenWidth < 900) return 'sm';     // Small
-    if (screenWidth < 1200) return 'md';    // Medium
-    if (screenWidth < 1536) return 'lg';    // Large
+    if (screenWidth < 1100) return 'md';    // Medium - reduced from 1200 to 1100
+    if (screenWidth < 1536) return 'lg';    // Large - now includes 1200px viewport
     return 'xl';                            // Extra large
   };
 

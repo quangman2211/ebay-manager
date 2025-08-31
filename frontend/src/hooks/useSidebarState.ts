@@ -41,15 +41,7 @@ export const useSidebarState = (): UseSidebarStateReturn => {
     };
   });
 
-  // Auto-collapse on mobile, restore desktop state when switching back
-  useEffect(() => {
-    if (isMobile) {
-      // On mobile, close the mobile drawer if it's open
-      if (sidebarState.isMobileOpen) {
-        setSidebarState(prev => ({ ...prev, isMobileOpen: false }));
-      }
-    }
-  }, [isMobile, sidebarState.isMobileOpen]);
+  // Note: Removed auto-close effect to prevent interference with manual mobile drawer toggle
 
   // Save expanded state to localStorage (only for desktop)
   useEffect(() => {

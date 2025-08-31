@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Drawer, 
   List, 
@@ -88,7 +88,13 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
             const menuItem = (
               <ListItem
                 key={item.text}
-                onClick={() => navigate(item.path)}
+                onClick={() => {
+                  navigate(item.path);
+                  // Auto-close mobile drawer when navigation item is clicked
+                  if (mobileOpen) {
+                    onDrawerToggle();
+                  }
+                }}
                 sx={{
                   ...styles.menuItem.base,
                   ...(isExpanded ? styles.menuItem.expanded : styles.menuItem.collapsed),
@@ -173,6 +179,7 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
     </Box>
   );
 
+
   return (
     <>
       {/* Mobile drawer */}
@@ -182,7 +189,6 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
         onClose={onDrawerToggle}
         ModalProps={{ 
           keepMounted: true,
-          'aria-labelledby': 'mobile-navigation-drawer',
         }}
         sx={{
           ...styles.drawer.mobile,
@@ -198,7 +204,6 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
         PaperProps={{
           'aria-label': 'Mobile navigation sidebar',
           role: 'navigation',
-          id: 'mobile-navigation-drawer',
         }}
       >
         {drawerContent}

@@ -3,7 +3,7 @@ Giúp tôi merge nhánh feature/tinh-nang-1 vào nhánh main một cách an toà
 1. Kiểm tra và commit hết các thay đổi trong feature branch
 2. Cập nhật main mới nhất vào feature branch trước
 3. Giải quyết conflict nếu có
-4. Test lại tính năng
+4. Test lại tính năng voi mcp playwright
 5. Merge feature vào main
 6. Push lên origin
 

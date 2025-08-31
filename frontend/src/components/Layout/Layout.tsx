@@ -34,7 +34,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         collapsedWidth={collapsedWidth}
         mobileOpen={isMobileOpen}
         isExpanded={isExpanded}
-        onDrawerToggle={closeMobileSidebar}
+        onDrawerToggle={toggleMobileSidebar}
       />
 
       {/* Main content area - single scroll container */}

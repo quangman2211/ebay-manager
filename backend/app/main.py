@@ -10,7 +10,8 @@ from app.database import get_db
 from app.models import User, Account, CSVData, OrderStatus
 from app.schemas import (
     UserCreate, UserResponse, Token, AccountCreate, AccountResponse,
-    CSVUpload, OrderResponse, ListingResponse, OrderStatusUpdate, DataType
+    CSVUpload, OrderResponse, ListingResponse, OrderStatusUpdate, DataType,
+    ListingFieldUpdate, ListingBulkUpdate, ListingUpdateRequest, ListingPerformanceMetrics
 )
 from app.auth import (
     authenticate_user, create_access_token, get_current_active_user,
@@ -18,6 +19,7 @@ from app.auth import (
 )
 from app.config import settings
 from app.csv_service import CSVProcessor
+from app.services.listing_service import create_listing_service
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +30,7 @@ app = FastAPI(title="eBay Manager API", version="1.0.0")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3003"],  # React frontends
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3003", "http://localhost:8003"],  # React frontends
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -381,6 +383,108 @@ def global_search(
     
     # Limit results to 20 items
     return results[:20]
+
+
+# Listing Management Endpoints
+@app.get("/api/v1/listings/{listing_id}", response_model=ListingResponse)
+def get_listing_by_id(
+    listing_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get a specific listing by ID with permission check"""
+    listing_service = create_listing_service(db)
+    try:
+        listing = listing_service.get_listing(listing_id, current_user)
+        if not listing:
+            raise HTTPException(status_code=404, detail="Listing not found")
+        return listing
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+@app.put("/api/v1/listings/{listing_id}/field")
+def update_listing_field(
+    listing_id: int,
+    field_update: ListingFieldUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update a single field of a listing"""
+    listing_service = create_listing_service(db)
+    try:
+        updated_listing = listing_service.update_listing_field(
+            listing_id, field_update.field, field_update.value, current_user
+        )
+        return {"message": f"Field '{field_update.field}' updated successfully", "listing_id": listing_id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+@app.put("/api/v1/listings/{listing_id}/bulk")
+def update_listing_bulk(
+    listing_id: int,
+    bulk_update: ListingBulkUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update multiple fields of a listing at once"""
+    listing_service = create_listing_service(db)
+    try:
+        updated_listing = listing_service.update_listing_bulk_fields(
+            listing_id, bulk_update.updates, current_user
+        )
+        return {"message": "Listing updated successfully", "listing_id": listing_id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+@app.put("/api/v1/listings/{listing_id}")
+def update_listing(
+    listing_id: int,
+    update_request: ListingUpdateRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update listing with multiple optional fields"""
+    listing_service = create_listing_service(db)
+    
+    # Convert ListingUpdateRequest to dict, filtering out None values
+    updates = {k: v for k, v in update_request.dict().items() if v is not None}
+    
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    try:
+        updated_listing = listing_service.update_listing_bulk_fields(
+            listing_id, updates, current_user
+        )
+        return {"message": "Listing updated successfully", "listing_id": listing_id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+@app.get("/api/v1/listings/{listing_id}/metrics", response_model=ListingPerformanceMetrics)
+def get_listing_performance_metrics(
+    listing_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get performance metrics for a specific listing"""
+    listing_service = create_listing_service(db)
+    try:
+        metrics = listing_service.get_listing_performance_metrics(listing_id, current_user)
+        return metrics
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 
 if __name__ == "__main__":

@@ -79,6 +79,40 @@ export const listingsAPI = {
     const response = await api.get('/listings', { params });
     return response.data;
   },
+
+  getListingById: async (listingId: number): Promise<Listing> => {
+    const response = await api.get(`/listings/${listingId}`);
+    return response.data;
+  },
+
+  updateListingField: async (listingId: number, field: string, value: string): Promise<void> => {
+    await api.put(`/listings/${listingId}/field`, { field, value });
+  },
+
+  updateListingBulk: async (listingId: number, updates: Record<string, string>): Promise<void> => {
+    await api.put(`/listings/${listingId}/bulk`, { updates });
+  },
+
+  updateListing: async (listingId: number, updates: Partial<{
+    title: string;
+    price: string;
+    quantity: string;
+    status: string;
+    description: string;
+  }>): Promise<void> => {
+    await api.put(`/listings/${listingId}`, updates);
+  },
+
+  getListingMetrics: async (listingId: number): Promise<{
+    sell_through_rate: number;
+    watchers_count: number;
+    stock_status: string;
+    days_listed: number;
+    price_competitiveness: string;
+  }> => {
+    const response = await api.get(`/listings/${listingId}/metrics`);
+    return response.data;
+  },
 };
 
 export const csvAPI = {

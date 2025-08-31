@@ -27,6 +27,7 @@ import {
   Inventory,
   Receipt,
   Close as CloseIcon,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -43,9 +44,19 @@ interface SearchResult {
 
 interface HeaderWithSearchProps {
   drawerWidth: number;
+  isExpanded: boolean;
+  onToggleSidebar: () => void;
+  onToggleMobileSidebar: () => void;
+  isMobile: boolean;
 }
 
-const HeaderWithSearch: React.FC<HeaderWithSearchProps> = ({ drawerWidth }) => {
+const HeaderWithSearch: React.FC<HeaderWithSearchProps> = ({ 
+  drawerWidth, 
+  isExpanded, 
+  onToggleSidebar, 
+  onToggleMobileSidebar, 
+  isMobile 
+}) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -156,14 +167,36 @@ const HeaderWithSearch: React.FC<HeaderWithSearchProps> = ({ drawerWidth }) => {
     <AppBar
       position="fixed"
       sx={{
-        width: `calc(100% - ${drawerWidth}px)`,
-        ml: `${drawerWidth}px`,
+        width: isMobile ? '100%' : `calc(100% - ${drawerWidth}px)`,
+        ml: isMobile ? 0 : `${drawerWidth}px`,
         backgroundColor: colors.bgPrimary,
         color: colors.textPrimary,
         boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+        transition: theme.transitions.create(['margin', 'width'], {
+          easing: theme.transitions.easing.sharp,
+          duration: theme.transitions.duration.leavingScreen,
+        }),
       }}
     >
       <Toolbar sx={{ justifyContent: 'space-between', px: spacing.xl }}>
+        {/* Hamburger Menu */}
+        <IconButton
+          color="inherit"
+          aria-label={isMobile ? "open drawer" : (isExpanded ? "collapse sidebar" : "expand sidebar")}
+          onClick={isMobile ? onToggleMobileSidebar : onToggleSidebar}
+          edge="start"
+          sx={{
+            mr: spacing.lg,
+            display: 'flex',
+            '&:hover': {
+              backgroundColor: alpha(colors.primary[500], 0.08),
+            },
+            transition: theme.transitions.create('background-color'),
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+        
         {/* Search Bar */}
         <Box sx={{ position: 'relative', flexGrow: 1, maxWidth: '100%', mr: spacing.xl }}>
           <Box

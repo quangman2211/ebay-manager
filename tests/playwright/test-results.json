@@ -1,0 +1,526 @@
+{
+  "config": {
+    "configFile": "/home/quangman/EBAY/ebay-manager/tests/playwright/playwright.config.ts",
+    "rootDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/tests",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ],
+      [
+        "list",
+        null
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 10000
+      },
+      {
+        "outputDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 10000
+      },
+      {
+        "outputDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 10000
+      },
+      {
+        "outputDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 10000
+      },
+      {
+        "outputDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "/home/quangman/EBAY/ebay-manager/tests/playwright/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 10000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.55.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "frontend-ui.spec.ts",
+      "file": "frontend-ui.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Frontend UI Component Tests",
+          "file": "frontend-ui.spec.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Login Page should render correctly and handle authentication",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 10000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8262,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "✅ Login page UI tests completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-30T16:15:06.579Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8a023ea3b066b703000-6d5dbdc86faf7cd97f43",
+              "file": "frontend-ui.spec.ts",
+              "line": 11,
+              "column": 7
+            },
+            {
+              "title": "Dashboard should display correctly with all components",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 10000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7063,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "✅ Dashboard UI tests completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-30T16:15:15.091Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8a023ea3b066b703000-6a965449f725b9a6790b",
+              "file": "frontend-ui.spec.ts",
+              "line": 66,
+              "column": 7
+            },
+            {
+              "title": "Orders Page should display data grid and filtering options",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 10000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6785,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "Current URL: http://localhost:3000/orders\n"
+                        },
+                        {
+                          "text": "✅ Orders page loaded successfully!\n"
+                        },
+                        {
+                          "text": "✅ Orders page UI tests completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-30T16:15:22.185Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8a023ea3b066b703000-f53c3b805dce2035cb97",
+              "file": "frontend-ui.spec.ts",
+              "line": 128,
+              "column": 7
+            },
+            {
+              "title": "Listings Page should display search and listing management",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 10000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8918,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "✅ Listings page UI tests completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-30T16:15:28.996Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8a023ea3b066b703000-eddfed72f5123e09cf8c",
+              "file": "frontend-ui.spec.ts",
+              "line": 174,
+              "column": 7
+            },
+            {
+              "title": "CSV Upload Page should display drag-and-drop interface",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 10000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7635,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "✅ CSV Upload page UI tests completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-30T16:15:37.948Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8a023ea3b066b703000-97246b4885b4db370fc0",
+              "file": "frontend-ui.spec.ts",
+              "line": 236,
+              "column": 7
+            },
+            {
+              "title": "Navigation and Layout should work correctly",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 10000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 10190,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 10000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 10000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 10000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/quangman/EBAY/ebay-manager/tests/playwright/tests/frontend-ui.spec.ts",
+                            "column": 18,
+                            "line": 332
+                          },
+                          "message": "Error: page.screenshot: Test timeout of 10000ms exceeded.\nCall log:\n\u001b[2m  - taking page screenshot\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\n\n  330 |         console.log(`⚠️ Navigation to ${item} failed, continuing...`);\n  331 |       }\n> 332 |       await page.screenshot({ \n      |                  ^\n  333 |         path: `test-results/navigation-${item.toLowerCase().replace(' ', '-')}.png`,\n  334 |         fullPage: true \n  335 |       });\n    at /home/quangman/EBAY/ebay-manager/tests/playwright/tests/frontend-ui.spec.ts:332:18"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "✅ Navigated to Dashboard\n"
+                        },
+                        {
+                          "text": "✅ Navigated to Orders\n"
+                        },
+                        {
+                          "text": "✅ Navigated to Listings\n"
+                        },
+                        {
+                          "text": "✅ Navigated to CSV Upload\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-30T16:15:45.613Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/quangman/EBAY/ebay-manager/tests/playwright/test-results/frontend-ui-Frontend-UI-Co-cef0e-ayout-should-work-correctly-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/quangman/EBAY/ebay-manager/tests/playwright/test-results/frontend-ui-Frontend-UI-Co-cef0e-ayout-should-work-correctly-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/quangman/EBAY/ebay-manager/tests/playwright/test-results/frontend-ui-Frontend-UI-Co-cef0e-ayout-should-work-correctly-chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e8a023ea3b066b703000-c7f447ac3e9d98e17921",
+              "file": "frontend-ui.spec.ts",
+              "line": 306,
+              "column": 7
+            },
+            {
+              "title": "Dark Theme and Accessibility should work",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 10000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3891,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "✅ Accessibility tests completed - 4 elements checked\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-30T16:15:57.199Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8a023ea3b066b703000-b1d2ef7ac903d4b46d65",
+              "file": "frontend-ui.spec.ts",
+              "line": 359,
+              "column": 7
+            },
+            {
+              "title": "Error States and Edge Cases should be handled",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 10000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6181,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "Blocking API call: http://localhost:8000/api/v1/orders?account_id=1\n"
+                        },
+                        {
+                          "text": "Blocking API call: http://localhost:8000/api/v1/listings?account_id=1\n"
+                        },
+                        {
+                          "text": "Blocking API call: http://localhost:8000/api/v1/accounts\n"
+                        },
+                        {
+                          "text": "Blocking API call: http://localhost:8000/api/v1/accounts\n"
+                        },
+                        {
+                          "text": "✅ Navigation completed with network blocking active\n"
+                        },
+                        {
+                          "text": "✅ Network blocking removed\n"
+                        },
+                        {
+                          "text": "✅ Error handling UI tests completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-30T16:16:01.319Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8a023ea3b066b703000-51c983223606decdc10e",
+              "file": "frontend-ui.spec.ts",
+              "line": 404,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-08-30T16:15:05.269Z",
+    "duration": 62361.481999999996,
+    "expected": 7,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

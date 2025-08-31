@@ -97,4 +97,13 @@ export const csvAPI = {
   },
 };
 
+export const searchAPI = {
+  globalSearch: async (query: string): Promise<any[]> => {
+    const response = await api.get('/search', {
+      params: { q: query }
+    });
+    return response.data;
+  },
+};
+
 export default api;

@@ -28,7 +28,7 @@ app = FastAPI(title="eBay Manager API", version="1.0.0")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React frontend
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3003"],  # React frontends
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -322,6 +322,65 @@ def update_order_status(
 @app.get("/api/v1/me", response_model=UserResponse)
 def get_current_user_info(current_user: User = Depends(get_current_active_user)):
     return current_user
+
+
+@app.get("/api/v1/search")
+def global_search(
+    q: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Global search across orders, listings, and items
+    """
+    if not q or len(q) < 2:
+        return []
+    
+    search_query = f"%{q.lower()}%"
+    results = []
+    
+    # Search in orders
+    order_rows = db.query(CSVData).filter(
+        CSVData.data_type == "order"
+    ).all()
+    
+    for order in order_rows:
+        csv_data = order.csv_row
+        # Search in Order #, Item #, Customer, or Item name
+        if (q.lower() in csv_data.get("Order #", "").lower() or
+            q.lower() in csv_data.get("Item #", "").lower() or  
+            q.lower() in csv_data.get("Customer", "").lower() or
+            q.lower() in csv_data.get("Item", "").lower()):
+            
+            results.append({
+                "type": "order",
+                "id": csv_data.get("Order #", order.item_id),
+                "title": f"Order {csv_data.get('Order #', 'N/A')}",
+                "subtitle": f"{csv_data.get('Customer', 'N/A')} - {csv_data.get('Item', 'N/A')}",
+                "status": csv_data.get("Status", "pending")
+            })
+    
+    # Search in listings
+    listing_rows = db.query(CSVData).filter(
+        CSVData.data_type == "listing"
+    ).all()
+    
+    for listing in listing_rows:
+        csv_data = listing.csv_row
+        # Search in Item # or Title
+        if (q.lower() in csv_data.get("Item #", "").lower() or
+            q.lower() in csv_data.get("Title", "").lower()):
+            
+            results.append({
+                "type": "listing",
+                "id": csv_data.get("Item #", listing.item_id),
+                "title": csv_data.get("Title", "N/A"),
+                "subtitle": f"Item #{csv_data.get('Item #', 'N/A')} - {csv_data.get('Price', '$0')}",
+                "status": csv_data.get("Status", "active")
+            })
+    
+    # Limit results to 20 items
+    return results[:20]
 
 
 if __name__ == "__main__":

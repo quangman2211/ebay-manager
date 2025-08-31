@@ -26,6 +26,11 @@ export const spacing = {
   formGap: 2,             // 16px - form field spacing
   buttonSpacing: 3,       // 24px - button top margin
   
+  // Search specific spacing
+  searchPadding: 1.5,     // 12px - search input padding
+  searchGap: 1,           // 8px - gap between search elements
+  searchResults: 1,       // 8px - search results padding
+  
   // DataGrid specific
   rowHeight: 120,         // Current row height
   cellPadding: 1,         // 8px - cell padding

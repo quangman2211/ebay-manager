@@ -20,18 +20,47 @@ export const testAccount = {
 };
 
 export const apiEndpoints = {
-  backend: 'http://localhost:8000',
+  backend: 'http://localhost:3004',
   login: '/api/v1/login',
   accounts: '/api/v1/accounts',
   orders: '/api/v1/orders',
   listings: '/api/v1/listings',
   csvUpload: '/api/v1/csv/upload',
-  docs: '/docs'
+  docs: '/docs',
+  // Order enhancement endpoints
+  orderHistory: '/api/v1/orders/{id}/history',
+  orderNotes: '/api/v1/orders/{id}/notes',
+  orderTracking: '/api/v1/orders/{id}/tracking'
 };
 
 export const testFiles = {
   orderCSV: '../../Docs/DATA/ebay-order.csv',
   listingCSV: '../../Docs/DATA/ebay-listing.csv'
+};
+
+export const testOrderData = {
+  validStatuses: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+  validTrackingNumbers: [
+    '1Z999AA1234567890',
+    'TBA123456789',
+    '9400109699938123456789'
+  ],
+  invalidTrackingNumbers: [
+    'invalid123',
+    '123',
+    ''
+  ],
+  sampleNotes: [
+    'Customer requested expedited shipping',
+    'Package damaged during transit - replacement sent',
+    'Customer satisfied with product quality'
+  ]
+};
+
+export const responsiveViewports = {
+  desktop: { width: 1920, height: 1080 },
+  tablet: { width: 768, height: 1024 },
+  mobile: { width: 375, height: 812 }
 };
 
 export const selectors = {
@@ -57,6 +86,22 @@ export const selectors = {
   ordersGrid: '[data-testid=orders-grid]',
   statusFilter: '[data-testid=status-filter]',
   statusUpdateDialog: '[data-testid=status-dialog]',
+  
+  // Order Enhancement Features
+  orderRow: '[data-testid=order-row]',
+  orderDetailModal: '[data-testid=order-detail-modal]',
+  statusEditor: '[data-testid=status-editor]',
+  statusDropdown: '[data-testid=status-dropdown]',
+  trackingNumberInput: '[data-testid=tracking-number-input]',
+  trackingNumberSave: '[data-testid=tracking-save-button]',
+  orderNotesSection: '[data-testid=order-notes-section]',
+  addNoteButton: '[data-testid=add-note-button]',
+  noteInput: '[data-testid=note-input]',
+  saveNoteButton: '[data-testid=save-note-button]',
+  notesList: '[data-testid=notes-list]',
+  orderHistoryTimeline: '[data-testid=order-history-timeline]',
+  historyItem: '[data-testid=history-item]',
+  modalCloseButton: '[data-testid=modal-close-button]',
   
   // Listings page
   listingsGrid: '[data-testid=listings-grid]',

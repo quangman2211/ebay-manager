@@ -1,7 +1,7 @@
 import axios from 'axios';
-import type { User, Account, Order, Listing, LoginResponse } from '../types';
+import type { User, Account, Order, Listing, LoginResponse, OrderNote } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3004';
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
@@ -68,6 +68,15 @@ export const ordersAPI = {
 
   updateOrderStatus: async (orderId: number, status: string): Promise<void> => {
     await api.put(`/orders/${orderId}/status`, { status });
+  },
+
+  updateTrackingNumber: async (orderId: number, trackingNumber: string): Promise<void> => {
+    await api.put(`/orders/${orderId}/tracking`, { tracking_number: trackingNumber });
+  },
+
+  addOrderNote: async (orderId: number, note: string): Promise<OrderNote> => {
+    const response = await api.post(`/orders/${orderId}/notes`, { note });
+    return response.data;
   },
 };
 

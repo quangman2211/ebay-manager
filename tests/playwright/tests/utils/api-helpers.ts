@@ -128,6 +128,68 @@ export class ApiHelper {
     expect(response.ok()).toBeTruthy();
     return await response.json();
   }
+
+  /**
+   * Update order tracking number
+   */
+  async updateOrderTracking(token: string, orderId: number, trackingNumber: string): Promise<any> {
+    const response = await this.request.put(`${apiEndpoints.backend}${apiEndpoints.orderTracking.replace('{id}', orderId.toString())}`, {
+      data: { tracking_number: trackingNumber },
+      headers: this.getAuthHeaders(token),
+    });
+
+    expect(response.ok()).toBeTruthy();
+    return await response.json();
+  }
+
+  /**
+   * Add note to order
+   */
+  async addOrderNote(token: string, orderId: number, note: string): Promise<any> {
+    const response = await this.request.post(`${apiEndpoints.backend}${apiEndpoints.orderNotes.replace('{id}', orderId.toString())}`, {
+      data: { note },
+      headers: this.getAuthHeaders(token),
+    });
+
+    expect(response.ok()).toBeTruthy();
+    return await response.json();
+  }
+
+  /**
+   * Get order notes
+   */
+  async getOrderNotes(token: string, orderId: number): Promise<any[]> {
+    const response = await this.request.get(`${apiEndpoints.backend}${apiEndpoints.orderNotes.replace('{id}', orderId.toString())}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    expect(response.ok()).toBeTruthy();
+    return await response.json();
+  }
+
+  /**
+   * Get order history
+   */
+  async getOrderHistory(token: string, orderId: number): Promise<any[]> {
+    const response = await this.request.get(`${apiEndpoints.backend}${apiEndpoints.orderHistory.replace('{id}', orderId.toString())}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    expect(response.ok()).toBeTruthy();
+    return await response.json();
+  }
+
+  /**
+   * Get single order details
+   */
+  async getOrder(token: string, orderId: number): Promise<any> {
+    const response = await this.request.get(`${apiEndpoints.backend}${apiEndpoints.orders}/${orderId}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    expect(response.ok()).toBeTruthy();
+    return await response.json();
+  }
 }
 
 /**

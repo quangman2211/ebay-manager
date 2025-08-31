@@ -3,6 +3,8 @@ import { Chip, Typography, Box } from '@mui/material';
 import { Warning, CheckCircle, Schedule, Person, Home, LocationOn, Phone } from '@mui/icons-material';
 import { tableStyles } from '../styles/config/tableStyles';
 import { colors } from '../styles/common/colors';
+import OrderStatusEditor from '../components/orders/OrderStatusEditor';
+import TrackingNumberInput from '../components/orders/TrackingNumberInput';
 
 const getStatusColor = (status?: string) => {
   switch (status) {
@@ -35,7 +37,10 @@ const getShipByStatus = (shipByDate: string) => {
   return { color: colors.success, icon: CheckCircle, label: null };
 };
 
-export const orderColumns: GridColDef[] = [
+export const createOrderColumns = (
+  onStatusUpdate?: (orderId: number, newStatus: string) => void,
+  onTrackingUpdate?: (orderId: number, trackingNumber: string) => void
+): GridColDef[] => [
   {
     field: 'order_number',
     headerName: 'Order #',
@@ -212,8 +217,17 @@ export const orderColumns: GridColDef[] = [
   {
     field: 'status',
     headerName: 'Status',
-    width: 110,
+    width: 180,
     renderCell: (params) => {
+      if (onStatusUpdate) {
+        return (
+          <OrderStatusEditor
+            order={params.row}
+            onStatusUpdate={onStatusUpdate}
+          />
+        );
+      }
+      
       const status = params.row.order_status?.status || 'pending';
       return (
         <Chip
@@ -225,4 +239,28 @@ export const orderColumns: GridColDef[] = [
       );
     },
   },
+  {
+    field: 'tracking',
+    headerName: 'Tracking',
+    width: 200,
+    renderCell: (params) => {
+      if (onTrackingUpdate) {
+        return (
+          <TrackingNumberInput
+            order={params.row}
+            onTrackingUpdate={onTrackingUpdate}
+          />
+        );
+      }
+      
+      const trackingNumber = params.row.csv_row['Tracking Number'];
+      return (
+        <Typography variant="body2" sx={{ fontSize: '12px' }}>
+          {trackingNumber || 'No tracking'}
+        </Typography>
+      );
+    },
+  },
 ];
+
+export const orderColumns = createOrderColumns();

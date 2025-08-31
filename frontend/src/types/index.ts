@@ -24,6 +24,14 @@ export interface OrderStatus {
   updated_at: string;
 }
 
+export interface OrderNote {
+  id: number;
+  order_id: number;
+  note: string;
+  created_by: number;
+  created_at: string;
+}
+
 export interface Order {
   id: number;
   item_id: string;
@@ -31,6 +39,7 @@ export interface Order {
   order_status?: OrderStatus;
   account_id: number;
   created_at: string;
+  notes?: OrderNote[];
 }
 
 export interface Listing {

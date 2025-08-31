@@ -22,7 +22,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:8004',
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     /* Take screenshot on failure */
@@ -72,13 +72,13 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: [
     {
-      command: 'cd ../../backend && source venv/bin/activate && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000',
-      port: 8000,
+      command: 'cd ../../backend && source venv/bin/activate && python -m uvicorn app.main:app --host 0.0.0.0 --port 3004',
+      port: 3004,
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: 'cd ../../frontend && npm start',
-      port: 3000,
+      command: 'cd ../../frontend && PORT=8004 npm start',
+      port: 8004,
       reuseExistingServer: !process.env.CI,
     }
   ],

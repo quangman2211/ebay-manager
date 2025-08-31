@@ -7,10 +7,11 @@ from typing import List
 import logging
 
 from app.database import get_db
-from app.models import User, Account, CSVData, OrderStatus
+from app.models import User, Account, CSVData, OrderStatus, OrderNote
 from app.schemas import (
     UserCreate, UserResponse, Token, AccountCreate, AccountResponse,
-    CSVUpload, OrderResponse, ListingResponse, OrderStatusUpdate, DataType
+    CSVUpload, OrderResponse, ListingResponse, OrderStatusUpdate, DataType,
+    OrderNoteBase, OrderNoteCreate, OrderNoteResponse, TrackingNumberUpdate
 )
 from app.auth import (
     authenticate_user, create_access_token, get_current_active_user,
@@ -28,7 +29,7 @@ app = FastAPI(title="eBay Manager API", version="1.0.0")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3003"],  # React frontends
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3003", "http://localhost:8004"],  # React frontends
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -238,7 +239,10 @@ def get_orders(
 ):
     from sqlalchemy.orm import joinedload
     
-    query = db.query(CSVData).filter(CSVData.data_type == "order").options(joinedload(CSVData.order_status))
+    query = db.query(CSVData).filter(CSVData.data_type == "order").options(
+        joinedload(CSVData.order_status),
+        joinedload(CSVData.notes)
+    )
     
     # Filter by account access
     if current_user.role != "admin":
@@ -381,6 +385,70 @@ def global_search(
     
     # Limit results to 20 items
     return results[:20]
+
+
+@app.put("/api/v1/orders/{order_id}/tracking")
+def update_tracking_number(
+    order_id: int,
+    tracking_update: TrackingNumberUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(CSVData).filter(
+        CSVData.id == order_id,
+        CSVData.data_type == "order"
+    ).first()
+    
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found"
+        )
+    
+    if current_user.role != "admin" and order.account.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this order"
+        )
+    
+    order.csv_row["Tracking Number"] = tracking_update.tracking_number
+    db.commit()
+    return {"message": "Tracking number updated successfully"}
+
+
+@app.post("/api/v1/orders/{order_id}/notes", response_model=OrderNoteResponse)
+def add_order_note(
+    order_id: int,
+    note_data: OrderNoteBase,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(CSVData).filter(
+        CSVData.id == order_id,
+        CSVData.data_type == "order"
+    ).first()
+    
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found"
+        )
+    
+    if current_user.role != "admin" and order.account.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to add note to this order"
+        )
+    
+    note = OrderNote(
+        order_id=order_id,
+        note=note_data.note,
+        created_by=current_user.id
+    )
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return note
 
 
 if __name__ == "__main__":

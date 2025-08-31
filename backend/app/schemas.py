@@ -117,6 +117,7 @@ class OrderResponse(BaseModel):
     order_status: Optional[OrderStatusResponse] = None
     account_id: int
     created_at: datetime
+    notes: Optional[List['OrderNoteResponse']] = None
 
     class Config:
         from_attributes = True
@@ -136,3 +137,26 @@ class ListingResponse(BaseModel):
 class CSVUpload(BaseModel):
     account_id: int
     data_type: DataType
+
+
+class OrderNoteBase(BaseModel):
+    note: str
+
+
+class OrderNoteCreate(OrderNoteBase):
+    order_id: int
+    created_by: int
+
+
+class OrderNoteResponse(OrderNoteBase):
+    id: int
+    order_id: int
+    created_by: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TrackingNumberUpdate(BaseModel):
+    tracking_number: str

@@ -44,6 +44,7 @@ class CSVData(Base):
 
     account = relationship("Account", back_populates="csv_data")
     order_status = relationship("OrderStatus", back_populates="csv_data", uselist=False)
+    notes = relationship("OrderNote", back_populates="order")
 
 
 class OrderStatus(Base):
@@ -57,3 +58,16 @@ class OrderStatus(Base):
 
     csv_data = relationship("CSVData", back_populates="order_status")
     updated_by_user = relationship("User")
+
+
+class OrderNote(Base):
+    __tablename__ = "order_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("csv_data.id"), nullable=False)
+    note = Column(Text, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    order = relationship("CSVData")
+    created_by_user = relationship("User")

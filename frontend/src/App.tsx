@@ -29,7 +29,12 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        flex: 1
+      }}>
         Loading...
       </Box>
     );
@@ -67,9 +72,16 @@ const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <Box sx={{ 
+        display: 'flex', 
+        height: '100vh', 
+        overflow: 'hidden',
+        flexDirection: 'column'
+      }}>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </Box>
     </ThemeProvider>
   );
 };

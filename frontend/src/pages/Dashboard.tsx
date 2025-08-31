@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { accountsAPI, ordersAPI, listingsAPI } from '../services/api';
 import { dashboardStyles } from '../styles/pages/dashboardStyles';
+import { useResponsive } from '../hooks/useResponsive';
 import type { Account, Order, Listing } from '../types';
 
 interface DashboardStats {
@@ -28,6 +29,7 @@ interface DashboardStats {
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { isMini, isMobile, isTablet, breakpoint } = useResponsive();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<number | ''>('');
   const [stats, setStats] = useState<DashboardStats>({
@@ -40,6 +42,19 @@ const Dashboard: React.FC = () => {
     todayRevenue: 0,
   });
   const [loading, setLoading] = useState(true);
+
+  // Memoize grid configuration based on screen size including mini mode
+  const gridConfig = useMemo(() => {
+    if (isMini) return dashboardStyles.gridItemConfig.mini;
+    if (isMobile) return dashboardStyles.gridItemConfig.mobile;
+    if (isTablet) return dashboardStyles.gridItemConfig.medium;
+    return dashboardStyles.gridItemConfig.large;
+  }, [isMini, isMobile, isTablet]);
+
+  // Memoize responsive spacing based on breakpoint including mini mode
+  const responsiveSpacing = useMemo(() => {
+    return dashboardStyles.gridContainer.spacing[breakpoint] || dashboardStyles.gridContainer.spacing.md;
+  }, [breakpoint]);
 
   useEffect(() => {
     loadAccounts();
@@ -123,18 +138,40 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{
+      ...dashboardStyles.dashboardContainer,
+      ...(isMini && {
+        // Mini mode optimizations
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%'
+      })
+    }}>
       <Box sx={dashboardStyles.headerContainer}>
-        <Typography variant="h4" component="h1">
+        <Typography 
+          variant="h4" 
+          component="h1"
+          sx={dashboardStyles.pageTitle}
+        >
           Dashboard
         </Typography>
         
         <FormControl sx={dashboardStyles.accountSelect}>
-          <InputLabel>eBay Account</InputLabel>
+          <InputLabel sx={{
+            fontSize: isMini ? '0.75rem' : undefined
+          }}>
+            eBay Account
+          </InputLabel>
           <Select
             value={selectedAccount}
             label="eBay Account"
             onChange={(e) => setSelectedAccount(e.target.value as number | '')}
+            sx={{
+              '& .MuiSelect-select': {
+                fontSize: isMini ? '0.875rem' : undefined,
+                padding: isMini ? '8px 12px' : undefined
+              }
+            }}
           >
             {accounts.map((account) => (
               <MenuItem key={account.id} value={account.id}>
@@ -145,28 +182,33 @@ const Dashboard: React.FC = () => {
         </FormControl>
       </Box>
 
-      <Grid container spacing={dashboardStyles.gridContainer.spacing}>
+      <Box sx={{
+        ...(isMini && {
+          flex: 1
+        })
+      }}>
+        <Grid container spacing={responsiveSpacing} sx={dashboardStyles.gridContainer}>
         {/* Order Stats */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+        <Grid item {...gridConfig}>
+          <Card sx={dashboardStyles.metricCard}>
+            <CardContent sx={dashboardStyles.cardContent}>
+              <Typography sx={dashboardStyles.metricLabel}>
                 Total Orders
               </Typography>
-              <Typography variant="h4">
+              <Typography sx={dashboardStyles.metricValue}>
                 {stats.totalOrders}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+        <Grid item {...gridConfig}>
+          <Card sx={dashboardStyles.metricCard}>
+            <CardContent sx={dashboardStyles.cardContent}>
+              <Typography sx={dashboardStyles.metricLabel}>
                 Pending Orders
               </Typography>
-              <Typography variant="h4">
+              <Typography sx={dashboardStyles.metricValue}>
                 {stats.pendingOrders}
               </Typography>
               <Chip 
@@ -179,26 +221,26 @@ const Dashboard: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+        <Grid item {...gridConfig}>
+          <Card sx={dashboardStyles.metricCard}>
+            <CardContent sx={dashboardStyles.cardContent}>
+              <Typography sx={dashboardStyles.metricLabel}>
                 Shipped Orders
               </Typography>
-              <Typography variant="h4">
+              <Typography sx={dashboardStyles.metricValue}>
                 {stats.shippedOrders}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+        <Grid item {...gridConfig}>
+          <Card sx={dashboardStyles.metricCard}>
+            <CardContent sx={dashboardStyles.cardContent}>
+              <Typography sx={dashboardStyles.metricLabel}>
                 Completed Orders
               </Typography>
-              <Typography variant="h4">
+              <Typography sx={dashboardStyles.metricValue}>
                 {stats.completedOrders}
               </Typography>
             </CardContent>
@@ -206,61 +248,81 @@ const Dashboard: React.FC = () => {
         </Grid>
 
         {/* Listing Stats */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+        <Grid item {...gridConfig}>
+          <Card sx={dashboardStyles.metricCard}>
+            <CardContent sx={dashboardStyles.cardContent}>
+              <Typography sx={dashboardStyles.metricLabel}>
                 Total Listings
               </Typography>
-              <Typography variant="h4">
+              <Typography sx={dashboardStyles.metricValue}>
                 {stats.totalListings}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+        <Grid item {...gridConfig}>
+          <Card sx={dashboardStyles.metricCard}>
+            <CardContent sx={dashboardStyles.cardContent}>
+              <Typography sx={dashboardStyles.metricLabel}>
                 Active Listings
               </Typography>
-              <Typography variant="h4">
+              <Typography sx={dashboardStyles.metricValue}>
                 {stats.activeListings}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+        <Grid item {...gridConfig}>
+          <Card sx={dashboardStyles.metricCard}>
+            <CardContent sx={dashboardStyles.cardContent}>
+              <Typography sx={dashboardStyles.metricLabel}>
                 Today's Revenue
               </Typography>
-              <Typography variant="h4">
+              <Typography sx={dashboardStyles.metricValue}>
                 ${stats.todayRevenue.toFixed(2)}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+        <Grid item {...gridConfig}>
+          <Card sx={dashboardStyles.metricCard}>
+            <CardContent sx={dashboardStyles.cardContent}>
+              <Typography sx={dashboardStyles.metricLabel}>
                 Account Status
               </Typography>
-              <Typography variant="h6">
-                {user?.role === 'admin' ? 'Admin Access' : 'Staff Access'}
+              <Typography variant="h6" sx={{ 
+                fontSize: {
+                  mini: '0.875rem',   // Smaller on mini screens
+                  xs: '1rem',
+                  sm: '1.125rem', 
+                  md: '1.25rem'
+                },
+                fontWeight: 600,
+                mb: {
+                  mini: 0.5,          // Less margin on mini screens
+                  xs: 1
+                }
+              }}>
+                {isMini ? (user?.role === 'admin' ? 'Admin' : 'Staff') : (user?.role === 'admin' ? 'Admin Access' : 'Staff Access')}
               </Typography>
-              <Typography variant="body2" color="textSecondary">
-                Managing {accounts.length} account(s)
+              <Typography variant="body2" sx={{
+                color: 'text.secondary',
+                fontSize: {
+                  mini: '0.625rem',   // Smaller on mini screens
+                  xs: '0.75rem',
+                  sm: '0.875rem'
+                }
+              }}>
+                {isMini ? `${accounts.length} account(s)` : `Managing ${accounts.length} account(s)`}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
-      </Grid>
+        </Grid>
+      </Box>
     </Box>
   );
 };

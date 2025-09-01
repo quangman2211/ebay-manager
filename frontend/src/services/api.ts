@@ -69,6 +69,20 @@ export const ordersAPI = {
   updateOrderStatus: async (orderId: number, status: string): Promise<void> => {
     await api.put(`/orders/${orderId}/status`, { status });
   },
+
+  bulkUpdateOrderStatus: async (
+    orderIds: number[], 
+    status: string, 
+    auditContext?: { userId: number; operation: string }
+  ): Promise<import('../types').BulkOperationResult> => {
+    const payload: any = { order_ids: orderIds, status };
+    if (auditContext) {
+      payload.audit_context = auditContext;
+    }
+    
+    const response = await api.put('/orders/bulk/status', payload);
+    return response.data;
+  },
 };
 
 export const listingsAPI = {

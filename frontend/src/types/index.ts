@@ -45,3 +45,15 @@ export interface LoginResponse {
   access_token: string;
   token_type: string;
 }
+
+export interface BulkOperationResult {
+  successful: number[];
+  failed: number[];
+  totalProcessed: number;
+  errors: string[];
+  audit?: {
+    userId: number;
+    timestamp: string;
+    operation: string;
+  };
+}

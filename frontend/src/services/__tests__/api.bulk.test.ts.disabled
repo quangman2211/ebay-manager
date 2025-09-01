@@ -1,0 +1,78 @@
+import { ordersAPI } from '../api';
+import axios from 'axios';
+import type { BulkOperationResult } from '../../types';
+
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+// Mock axios.create to return mocked axios instance
+mockedAxios.create.mockReturnValue(mockedAxios);
+
+describe('ordersAPI - Bulk Operations', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('bulkUpdateOrderStatus', () => {
+    it('should call correct endpoint with order IDs and status', async () => {
+      const orderIds = [1, 2, 3];
+      const status = 'shipped';
+      const mockResult: BulkOperationResult = {
+        successful: [1, 2, 3],
+        failed: [],
+        totalProcessed: 3,
+        errors: [],
+      };
+
+      mockedAxios.put.mockResolvedValue({ data: mockResult });
+
+      const result = await ordersAPI.bulkUpdateOrderStatus(orderIds, status);
+
+      expect(mockedAxios.put).toHaveBeenCalledWith('/orders/bulk/status', {
+        order_ids: orderIds,
+        status: status,
+      });
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should include audit context when provided', async () => {
+      const orderIds = [1, 2];
+      const status = 'processing';
+      const auditContext = { userId: 123, operation: 'bulk_update' };
+      const mockResult: BulkOperationResult = {
+        successful: [1, 2],
+        failed: [],
+        totalProcessed: 2,
+        errors: [],
+        audit: {
+          userId: 123,
+          timestamp: '2023-01-01T00:00:00Z',
+          operation: 'bulk_update',
+        },
+      };
+
+      mockedAxios.put.mockResolvedValue({ data: mockResult });
+
+      const result = await ordersAPI.bulkUpdateOrderStatus(orderIds, status, auditContext);
+
+      expect(mockedAxios.put).toHaveBeenCalledWith('/orders/bulk/status', {
+        order_ids: orderIds,
+        status: status,
+        audit_context: auditContext,
+      });
+      expect(result.audit).toBeDefined();
+    });
+
+    it('should handle API errors', async () => {
+      const orderIds = [1];
+      const status = 'shipped';
+      const error = new Error('Network error');
+
+      mockedAxios.put.mockRejectedValue(error);
+
+      await expect(
+        ordersAPI.bulkUpdateOrderStatus(orderIds, status)
+      ).rejects.toThrow('Network error');
+    });
+  });
+});

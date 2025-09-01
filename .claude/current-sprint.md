@@ -113,9 +113,9 @@ Implement features that directly reduce the time staff spend on order management
 ## 📈 Daily Progress Tracking
 
 ### Today's Priorities (Update Daily)
-1. **PRIMARY**: Start enhanced order page implementation
-2. **SECONDARY**: Design enhanced listing page components
-3. **TERTIARY**: Plan eBay account management structure
+1. **PRIMARY**: Plan eBay account management structure
+2. **SECONDARY**: Start enhanced order page implementation
+3. **TERTIARY**: Design enhanced listing page components
 
 ### Yesterday's Accomplishments
 - Updated sprint backlog with real requirements

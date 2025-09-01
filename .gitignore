@@ -76,3 +76,5 @@ test_*.db
 # Backup files
 *.bak
 *~
+# Claude Code local settings
+.claude/settings.local.json

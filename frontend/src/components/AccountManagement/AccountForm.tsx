@@ -14,7 +14,6 @@ import {
   Typography,
   Divider,
 } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
 import { Account } from '../../types';
 import { 
   PLATFORMS,
@@ -242,14 +241,14 @@ const AccountForm: React.FC<AccountFormProps> = ({
         <Button onClick={onClose} disabled={loading}>
           Cancel
         </Button>
-        <LoadingButton
+        <Button
           onClick={handleSubmit}
-          loading={loading}
+          disabled={loading}
           variant="contained"
           color="primary"
         >
-          {isEdit ? 'Update Account' : 'Create Account'}
-        </LoadingButton>
+          {loading ? 'Loading...' : (isEdit ? 'Update Account' : 'Create Account')}
+        </Button>
       </DialogActions>
     </Dialog>
   );

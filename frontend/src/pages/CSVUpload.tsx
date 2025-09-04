@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Box,
@@ -93,29 +93,18 @@ const CSVUpload: React.FC = () => {
     }
   }, []);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0) return;
+  const handleSuggestedAccountSelect = useCallback(async (suggestion: AccountSuggestion) => {
+    // Find the full account from accounts list
+    const fullAccount = accountState.accounts.find(acc => acc.id === suggestion.id);
+    if (!fullAccount || !currentFile) return;
 
-    const file = acceptedFiles[0];
-    setCurrentFile(file);
-    setUploadResult(null);
-
-    // If no account is selected, show suggestions
-    if (!accountState.currentAccount?.id) {
-      await handleAccountSuggestions(file);
-      return;
-    }
-
-    // Proceed with upload if account is selected
-    await uploadCSVFile(file, accountState.currentAccount.id);
-  }, [accountState.currentAccount?.id, handleAccountSuggestions]);
-
-  const uploadCSVFile = useCallback(async (file: File, accountId: number) => {
-    setUploading(true);
-    setUploadResult(null);
-
+    // Switch to the suggested account
+    dispatch({ type: 'SET_CURRENT_ACCOUNT', payload: fullAccount });
+    
+    // Upload the file
     try {
-      const result = await csvAPI.uploadCSV(file, accountId, dataType);
+      setUploading(true);
+      const result = await csvAPI.uploadCSV(currentFile, suggestion.id, dataType);
       setUploadResult({
         success: true,
         message: 'File uploaded successfully!',
@@ -139,26 +128,54 @@ const CSVUpload: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  }, [dataType]);
-
-  const handleSuggestedAccountSelect = useCallback(async (suggestion: AccountSuggestion) => {
-    // Find the full account from accounts list
-    const fullAccount = accountState.accounts.find(acc => acc.id === suggestion.id);
-    if (!fullAccount || !currentFile) return;
-
-    // Switch to the suggested account
-    dispatch({ type: 'SET_CURRENT_ACCOUNT', payload: fullAccount });
-    
-    // Upload the file
-    await uploadCSVFile(currentFile, suggestion.id);
-  }, [accountState.accounts, currentFile, dispatch, uploadCSVFile]);
+  }, [accountState.accounts, currentFile, dispatch, dataType]);
 
   const handleManualAccountSelect = useCallback(() => {
     setSuggestionState(prev => ({ ...prev, showSuggestions: false }));
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop: useCallback(async (acceptedFiles: File[]) => {
+      if (acceptedFiles.length === 0) return;
+
+      const file = acceptedFiles[0];
+      setCurrentFile(file);
+      setUploadResult(null);
+
+      // If no account is selected, show suggestions
+      if (!accountState.currentAccount?.id) {
+        await handleAccountSuggestions(file);
+        return;
+      }
+
+      // Proceed with upload if account is selected
+      try {
+        setUploading(true);
+        const result = await csvAPI.uploadCSV(file, accountState.currentAccount.id, dataType);
+        setUploadResult({
+          success: true,
+          message: 'File uploaded successfully!',
+          details: result,
+        });
+        
+        // Clear suggestions after successful upload
+        setSuggestionState({
+          detecting: false,
+          detectedUsername: null,
+          suggestions: [],
+          totalSuggestions: 0,
+          showSuggestions: false,
+        });
+        setCurrentFile(null);
+      } catch (error: any) {
+        setUploadResult({
+          success: false,
+          message: error.response?.data?.detail || 'Upload failed',
+        });
+      } finally {
+        setUploading(false);
+      }
+    }, [accountState.currentAccount?.id, handleAccountSuggestions, dataType]),
     accept: {
       'text/csv': ['.csv'],
       'application/vnd.ms-excel': ['.csv'],
@@ -193,7 +210,7 @@ const CSVUpload: React.FC = () => {
         <CardContent>
           <Box
             {...getRootProps()}
-            sx={csvUploadStyles.dropzoneArea(true, uploading || suggestionState.detecting, isDragActive)}
+            sx={csvUploadStyles.dropzoneArea(!!accountState.currentAccount?.id, uploading || suggestionState.detecting, isDragActive)}
           >
             <input {...getInputProps()} />
             

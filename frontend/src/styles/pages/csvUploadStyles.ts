@@ -34,18 +34,18 @@ export const csvUploadStyles = {
     mb: spacing.containerGap
   },
 
-  // Upload dropzone area
+  // Upload dropzone area - Allow click for Smart Upload even without selected account
   dropzoneArea: (selectedAccount: boolean, uploading: boolean, isDragActive: boolean) => ({
     border: `2px dashed ${colors.borderDrag}`,
     borderRadius: spacing.sectionGap,
     p: spacing.dropzonePadding,
     textAlign: 'center' as const,
-    cursor: selectedAccount && !uploading ? 'pointer' : 'not-allowed',
+    cursor: uploading ? 'not-allowed' : 'pointer',
     backgroundColor: isDragActive ? colors.bgSecondary : 'transparent',
-    opacity: selectedAccount && !uploading ? 1 : 0.5,
+    opacity: uploading ? 0.5 : 1,
     transition: 'all 0.2s ease',
     '&:hover': {
-      backgroundColor: selectedAccount && !uploading ? colors.bgDropzone : 'transparent'
+      backgroundColor: !uploading ? colors.bgDropzone : 'transparent'
     }
   }),
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import type { Account } from '../types';
 
 interface AccountState {
@@ -152,7 +152,7 @@ export const AccountProvider: React.FC<AccountProviderProps> = ({ children }) =>
     }
   }, [state.accounts]);
 
-  const setCurrentAccount = (account: Account | null) => {
+  const setCurrentAccount = useCallback((account: Account | null) => {
     console.log('[AccountContext] setCurrentAccount called with:', account ? account.name : 'All Accounts (null)');
     dispatch({ type: 'SET_CURRENT_ACCOUNT', payload: account });
     if (account) {
@@ -164,53 +164,53 @@ export const AccountProvider: React.FC<AccountProviderProps> = ({ children }) =>
       localStorage.setItem('currentAccountId', 'all');
     }
     console.log('[AccountContext] Current localStorage value:', localStorage.getItem('currentAccountId'));
-  };
+  }, []);
 
-  const setAccounts = (accounts: Account[]) => {
+  const setAccounts = useCallback((accounts: Account[]) => {
     dispatch({ type: 'SET_ACCOUNTS', payload: accounts });
-  };
+  }, []);
 
-  const addAccount = (account: Account) => {
+  const addAccount = useCallback((account: Account) => {
     dispatch({ type: 'ADD_ACCOUNT', payload: account });
-  };
+  }, []);
 
-  const updateAccount = (account: Account) => {
+  const updateAccount = useCallback((account: Account) => {
     dispatch({ type: 'UPDATE_ACCOUNT', payload: account });
-  };
+  }, []);
 
-  const removeAccount = (accountId: number) => {
+  const removeAccount = useCallback((accountId: number) => {
     dispatch({ type: 'REMOVE_ACCOUNT', payload: accountId });
-  };
+  }, []);
 
-  const setLoading = (loading: boolean) => {
+  const setLoading = useCallback((loading: boolean) => {
     dispatch({ type: 'SET_LOADING', payload: loading });
-  };
+  }, []);
 
-  const setError = (error: string | null) => {
+  const setError = useCallback((error: string | null) => {
     dispatch({ type: 'SET_ERROR', payload: error });
-  };
+  }, []);
 
-  const setSyncStatus = (status: 'idle' | 'syncing' | 'success' | 'error') => {
+  const setSyncStatus = useCallback((status: 'idle' | 'syncing' | 'success' | 'error') => {
     dispatch({ type: 'SET_SYNC_STATUS', payload: status });
-  };
+  }, []);
 
-  const setLastSyncAt = (timestamp: string | null) => {
+  const setLastSyncAt = useCallback((timestamp: string | null) => {
     dispatch({ type: 'SET_LAST_SYNC_AT', payload: timestamp });
-  };
+  }, []);
 
-  const refreshAccount = (id: number, updates: Partial<Account>) => {
+  const refreshAccount = useCallback((id: number, updates: Partial<Account>) => {
     dispatch({ type: 'REFRESH_ACCOUNT', payload: { id, updates } });
-  };
+  }, []);
 
-  const clearError = () => {
+  const clearError = useCallback(() => {
     dispatch({ type: 'SET_ERROR', payload: null });
-  };
+  }, []);
 
-  const getAccountById = (id: number): Account | undefined => {
+  const getAccountById = useCallback((id: number): Account | undefined => {
     return state.accounts.find(account => account.id === id);
-  };
+  }, [state.accounts]);
 
-  const contextValue: AccountContextType = {
+  const contextValue: AccountContextType = useMemo(() => ({
     state,
     dispatch,
     setCurrentAccount,
@@ -225,7 +225,21 @@ export const AccountProvider: React.FC<AccountProviderProps> = ({ children }) =>
     refreshAccount,
     clearError,
     getAccountById,
-  };
+  }), [
+    state,
+    setCurrentAccount,
+    setAccounts,
+    addAccount,
+    updateAccount,
+    removeAccount,
+    setLoading,
+    setError,
+    setSyncStatus,
+    setLastSyncAt,
+    refreshAccount,
+    clearError,
+    getAccountById,
+  ]);
 
   return (
     <AccountContext.Provider value={contextValue}>

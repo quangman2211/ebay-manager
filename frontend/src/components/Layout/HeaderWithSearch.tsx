@@ -6,9 +6,6 @@ import {
   IconButton,
   Box,
   Typography,
-  Avatar,
-  Menu,
-  MenuItem,
   Paper,
   List,
   ListItem,
@@ -21,18 +18,19 @@ import {
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  AccountCircle,
-  Logout as LogoutIcon,
   ShoppingCart,
   Inventory,
   Receipt,
   Close as CloseIcon,
   Menu as MenuIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../context/AuthContext';
+import { useAccount } from '../../context/AccountContext';
+import { useAccountManagement } from '../../hooks/useAccountManagement';
 import { useNavigate } from 'react-router-dom';
 import { searchAPI } from '../../services/api';
 import { colors, spacing } from '../../styles';
+import { Account } from '../../types';
+import AccountSelector from './AccountSelector';
 
 interface SearchResult {
   type: 'order' | 'listing' | 'item';
@@ -59,26 +57,14 @@ const HeaderWithSearch: React.FC<HeaderWithSearchProps> = ({
 }) => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const { state: accountState, setCurrentAccount } = useAccount();
+  const { accounts, loading: accountsLoading } = useAccountManagement();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
 
-  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = () => {
-    handleMenuClose();
-    logout();
-    navigate('/login');
-  };
 
   const performSearch = useCallback(async (query: string) => {
     if (query.trim().length < 2) {
@@ -163,6 +149,15 @@ const HeaderWithSearch: React.FC<HeaderWithSearchProps> = ({
     }
   };
 
+  // Handle account switching in header
+  const handleAccountChange = useCallback((account: Account | null) => {
+    console.log('[HeaderWithSearch] Account change triggered:', account ? account.name : 'All Accounts');
+    // Directly set the account in context without API call
+    // The API call was causing issues and isn't needed for frontend state management
+    setCurrentAccount(account);
+    console.log('[HeaderWithSearch] Account change completed successfully');
+  }, [setCurrentAccount]);
+
   return (
     <AppBar
       position="fixed"
@@ -178,7 +173,7 @@ const HeaderWithSearch: React.FC<HeaderWithSearchProps> = ({
         }),
       }}
     >
-      <Toolbar sx={{ justifyContent: 'space-between', px: spacing.xl }}>
+      <Toolbar sx={{ display: 'flex', px: spacing.xl, minHeight: '72px !important' }}>
         {/* Hamburger Menu */}
         <IconButton
           color="inherit"
@@ -196,9 +191,10 @@ const HeaderWithSearch: React.FC<HeaderWithSearchProps> = ({
         >
           <MenuIcon />
         </IconButton>
+
         
-        {/* Search Bar */}
-        <Box sx={{ position: 'relative', flexGrow: 1, maxWidth: '100%', mr: spacing.xl }}>
+        {/* Search Bar - Expanded */}
+        <Box sx={{ position: 'relative', flex: 1, mr: spacing.md }}>
           <Box
             sx={{
               position: 'relative',
@@ -215,7 +211,7 @@ const HeaderWithSearch: React.FC<HeaderWithSearchProps> = ({
                 boxShadow: `0 0 0 3px ${alpha(colors.primary[500], 0.1)}`,
               },
               width: '100%',
-              minHeight: 48,
+              minHeight: 56,
             }}
           >
             <Box
@@ -348,57 +344,15 @@ const HeaderWithSearch: React.FC<HeaderWithSearchProps> = ({
           )}
         </Box>
 
-        {/* User Menu */}
-        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 'max-content' }}>
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              mr: spacing.lg, 
-              display: { xs: 'none', md: 'block' },
-              fontWeight: 500,
-              color: colors.textSecondary,
-            }}
-          >
-            {user?.username}
-          </Typography>
-          <IconButton
-            edge="end"
-            onClick={handleProfileMenuOpen}
-            color="inherit"
-            sx={{
-              p: spacing.sm,
-              '&:hover': {
-                backgroundColor: alpha(colors.primary[500], 0.08),
-              },
-            }}
-          >
-            <Avatar sx={{ 
-              width: 36, 
-              height: 36, 
-              bgcolor: colors.primary[500],
-              fontSize: '16px',
-              fontWeight: 600,
-            }}>
-              {user?.username?.charAt(0).toUpperCase()}
-            </Avatar>
-          </IconButton>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          >
-            <MenuItem onClick={handleMenuClose}>
-              <AccountCircle sx={{ mr: spacing.md }} />
-              Profile
-            </MenuItem>
-            <Divider />
-            <MenuItem onClick={handleLogout}>
-              <LogoutIcon sx={{ mr: spacing.md }} />
-              Logout
-            </MenuItem>
-          </Menu>
+        {/* Account Selector - Right aligned */}
+        <Box sx={{ minWidth: 'max-content' }}>
+          <AccountSelector
+            accounts={accounts}
+            currentAccount={accountState.currentAccount}
+            onAccountChange={handleAccountChange}
+            loading={accountsLoading}
+            compact={isMobile}
+          />
         </Box>
       </Toolbar>
     </AppBar>

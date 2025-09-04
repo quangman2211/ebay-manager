@@ -5,12 +5,14 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AccountProvider } from './context/AccountContext';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Listings from './pages/Listings';
 import CSVUpload from './pages/CSVUpload';
+import AccountManagement from './pages/AccountManagement';
 import { themeConfig } from './styles';
 
 const theme = createTheme({
@@ -55,6 +57,7 @@ const AppContent: React.FC = () => {
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
         <Route path="/listings" element={<PrivateRoute><Listings /></PrivateRoute>} />
+        <Route path="/accounts" element={<PrivateRoute><AccountManagement /></PrivateRoute>} />
         <Route path="/upload" element={<PrivateRoute><CSVUpload /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -73,7 +76,9 @@ const App: React.FC = () => {
         flexDirection: 'column'
       }}>
         <AuthProvider>
-          <AppContent />
+          <AccountProvider>
+            <AppContent />
+          </AccountProvider>
         </AuthProvider>
       </Box>
     </ThemeProvider>

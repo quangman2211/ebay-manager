@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useAccountManagement } from '../../hooks/useAccountManagement';
 import { 
   Drawer, 
   List, 
@@ -17,6 +19,7 @@ import {
   Dashboard as DashboardIcon,
   Receipt as ReceiptIcon,
   Inventory as InventoryIcon,
+  AccountBox as AccountBoxIcon,
   UploadFile as UploadFileIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
@@ -41,6 +44,8 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
+  const { user } = useAuth();
+  const { accounts } = useAccountManagement();
   
   const currentWidth = isExpanded ? drawerWidth : collapsedWidth;
   const styles = sidebarStyles;
@@ -49,6 +54,7 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Orders', icon: <ReceiptIcon />, path: '/orders' },
     { text: 'Listings', icon: <InventoryIcon />, path: '/listings' },
+    { text: 'Accounts', icon: <AccountBoxIcon />, path: '/accounts' },
     { text: 'CSV Upload', icon: <UploadFileIcon />, path: '/upload' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
@@ -140,7 +146,7 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
       <Box sx={isExpanded ? styles.profileSection.expanded : styles.profileSection.collapsed}>
         <Box sx={isExpanded ? styles.profileContainer.expanded : styles.profileContainer.collapsed}>
           <Avatar sx={styles.avatar}>
-            A
+            {user?.username?.charAt(0).toUpperCase() || 'U'}
           </Avatar>
           {isExpanded && (
             <Box>
@@ -150,7 +156,7 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
                   delay: theme.transitions.duration.shorter,
                 }),
               }}>
-                Admin User
+                {user?.username || 'User'}
               </Typography>
               <Typography variant="caption" sx={{
                 ...styles.profileText.role,
@@ -158,14 +164,14 @@ const ModernSidebar: React.FC<ModernSidebarProps> = ({
                   delay: theme.transitions.duration.shorter,
                 }),
               }}>
-                Administrator
+                {user?.role === 'admin' ? 'Administrator' : 'Staff'}
               </Typography>
             </Box>
           )}
         </Box>
         {isExpanded && (
           <Chip
-            label="30 accounts"
+            label={`${accounts.length} account${accounts.length !== 1 ? 's' : ''}`}
             size="small"
             sx={{
               ...styles.profileChip,

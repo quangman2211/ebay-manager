@@ -7,11 +7,17 @@ from typing import List
 import logging
 
 from app.database import get_db
-from app.models import User, Account, CSVData, OrderStatus
+from app.models import User, Account, CSVData, OrderStatus, UserAccountPermission, AccountSettings
 from app.schemas import (
     UserCreate, UserResponse, Token, AccountCreate, AccountResponse,
-    CSVUpload, OrderResponse, ListingResponse, OrderStatusUpdate, DataType
+    CSVUpload, OrderResponse, ListingResponse, OrderStatusUpdate, DataType,
+    # Sprint 7 schemas
+    AccountUpdateRequest, EnhancedAccountResponse, UserAccountPermissionCreate,
+    UserAccountPermissionUpdate, UserAccountPermissionResponse, AccountSettingsCreate,
+    AccountSettingsUpdate, AccountSettingsResponse, BulkPermissionRequest,
+    BulkPermissionResponse, AccountSwitchRequest, PermissionLevel
 )
+from app.services import AccountService, PermissionService, PermissionError, AccountPermissionError
 from app.auth import (
     authenticate_user, create_access_token, get_current_active_user,
     get_password_hash
@@ -95,6 +101,81 @@ def get_accounts(
     return accounts
 
 
+@app.post("/api/v1/accounts/suggest")
+def suggest_accounts_for_csv(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    PHASE 2.3: Suggest matching accounts based on detected username from CSV
+    This endpoint analyzes CSV content/filename and suggests matching accounts
+    """
+    try:
+        # Read file content for username detection
+        content = file.file.read().decode('utf-8')
+        file.file.seek(0)  # Reset file pointer
+        
+        # Detect username from content and filename
+        detected_username = CSVProcessor.detect_platform_username(
+            content,
+            filename=file.filename or "",
+            account_type="ebay"  # Default to eBay for now
+        )
+        
+        # Get user's accessible accounts
+        if current_user.role == "admin":
+            accounts = db.query(Account).filter(Account.is_active == True).all()
+        else:
+            accounts = db.query(Account).filter(
+                Account.user_id == current_user.id,
+                Account.is_active == True
+            ).all()
+        
+        # Find matching accounts
+        suggested_accounts = []
+        exact_matches = []
+        partial_matches = []
+        
+        if detected_username:
+            for account in accounts:
+                # Exact match with platform_username
+                if account.platform_username == detected_username:
+                    exact_matches.append(account)
+                # Partial match with platform_username or name
+                elif (detected_username.lower() in (account.platform_username or "").lower() or
+                      detected_username.lower() in account.name.lower()):
+                    partial_matches.append(account)
+        
+        # Prioritize exact matches first, then partial matches
+        suggested_accounts = exact_matches + partial_matches
+        
+        return {
+            "detected_username": detected_username,
+            "suggested_accounts": [
+                {
+                    "id": acc.id,
+                    "name": acc.name,
+                    "platform_username": acc.platform_username,
+                    "match_type": "exact" if acc in exact_matches else "partial"
+                }
+                for acc in suggested_accounts[:5]  # Limit to top 5 suggestions
+            ],
+            "total_suggestions": len(suggested_accounts)
+        }
+        
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be UTF-8 encoded"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error analyzing CSV file: {str(e)}"
+        )
+
+
 @app.post("/api/v1/accounts", response_model=AccountResponse)
 def create_account(
     account: AccountCreate,
@@ -114,7 +195,7 @@ def create_account(
     
     db_account = Account(
         user_id=account.user_id,
-        ebay_username=account.ebay_username,
+        platform_username=account.platform_username,
         name=account.name,
         is_active=account.is_active
     )
@@ -163,6 +244,18 @@ def upload_csv(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File must be UTF-8 encoded"
         )
+    
+    # PHASE 2.1-2.2: eBay username detection with filename support
+    detected_username = CSVProcessor.detect_platform_username(
+        content, 
+        filename=file.filename or "",
+        account_type=account.account_type or "ebay"
+    )
+    if detected_username and not account.platform_username:
+        # Auto-update account with detected username
+        account.platform_username = detected_username
+        db.commit()
+        logger.info(f"Auto-detected and saved platform username: {detected_username} for account {account.name}")
     
     # Process CSV
     records, errors = CSVProcessor.process_csv_file(content, data_type_enum)
@@ -221,12 +314,20 @@ def upload_csv(
     
     db.commit()
     
-    return {
+    # PHASE 2.1: Enhanced response with detected username info  
+    response = {
         "message": "CSV uploaded successfully",
         "inserted_count": inserted_count,
         "duplicate_count": duplicate_count,
         "total_records": len(records)
     }
+    
+    # Include detected username in response if found
+    if detected_username:
+        response["detected_platform_username"] = detected_username
+        response["message"] += f" (Auto-detected seller: {detected_username})"
+    
+    return response
 
 
 @app.get("/api/v1/orders", response_model=List[OrderResponse])
@@ -381,6 +482,317 @@ def global_search(
     
     # Limit results to 20 items
     return results[:20]
+
+
+# =============================================================================
+# Sprint 7: Enhanced Account Management API Endpoints
+# =============================================================================
+
+@app.put("/api/v1/accounts/{account_id}", response_model=AccountResponse)
+def update_account_details(
+    account_id: int,
+    update_request: AccountUpdateRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update account details with permission validation"""
+    try:
+        account_service = AccountService(db)
+        updated_account = account_service.update_account(account_id, update_request, current_user)
+        return updated_account
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@app.get("/api/v1/accounts/{account_id}/details", response_model=EnhancedAccountResponse)
+def get_account_details(
+    account_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get detailed account information with permissions and settings"""
+    try:
+        account_service = AccountService(db)
+        account_details = account_service.get_account_details(account_id, current_user)
+        return account_details
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@app.delete("/api/v1/accounts/{account_id}")
+def deactivate_account(
+    account_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Deactivate an account (soft delete)"""
+    try:
+        account_service = AccountService(db)
+        account_service.deactivate_account(account_id, current_user)
+        return {"message": "Account deactivated successfully"}
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@app.post("/api/v1/accounts/{account_id}/permissions", response_model=UserAccountPermissionResponse)
+def create_user_permission(
+    account_id: int,
+    permission_request: UserAccountPermissionCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Grant permission to a user for specific account"""
+    try:
+        # Override account_id to ensure consistency
+        permission_request.account_id = account_id
+        
+        permission_service = PermissionService(db)
+        permission = permission_service.create_permission(permission_request, current_user)
+        return permission
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@app.put("/api/v1/permissions/{permission_id}", response_model=UserAccountPermissionResponse)
+def update_user_permission(
+    permission_id: int,
+    update_request: UserAccountPermissionUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update an existing user permission"""
+    try:
+        permission_service = PermissionService(db)
+        permission = permission_service.update_permission(permission_id, update_request, current_user)
+        return permission
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@app.delete("/api/v1/permissions/{permission_id}")
+def revoke_user_permission(
+    permission_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Revoke a user permission"""
+    try:
+        permission_service = PermissionService(db)
+        permission_service.revoke_permission(permission_id, current_user)
+        return {"message": "Permission revoked successfully"}
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@app.get("/api/v1/accounts/{account_id}/permissions", response_model=List[UserAccountPermissionResponse])
+def get_account_permissions(
+    account_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all permissions for a specific account"""
+    try:
+        permission_service = PermissionService(db)
+        permissions = permission_service.get_account_permissions(account_id, current_user)
+        return permissions
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+
+
+@app.get("/api/v1/users/{user_id}/permissions", response_model=List[UserAccountPermissionResponse])
+def get_user_permissions(
+    user_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all permissions for a specific user"""
+    try:
+        permission_service = PermissionService(db)
+        permissions = permission_service.get_user_permissions(user_id, current_user)
+        return permissions
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+
+
+@app.post("/api/v1/accounts/{account_id}/permissions/bulk", response_model=BulkPermissionResponse)
+def bulk_update_permissions(
+    account_id: int,
+    bulk_request: BulkPermissionRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update multiple permissions at once"""
+    try:
+        # Override account_id to ensure consistency
+        bulk_request.account_id = account_id
+        
+        permission_service = PermissionService(db)
+        result = permission_service.bulk_update_permissions(bulk_request, current_user)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@app.get("/api/v1/accounts/{account_id}/settings", response_model=List[AccountSettingsResponse])
+def get_account_settings(
+    account_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all settings for an account"""
+    try:
+        account_service = AccountService(db)
+        # Verify user has access to account
+        account_service._get_account_with_permission_check(account_id, current_user, PermissionLevel.VIEW)
+        
+        settings = db.query(AccountSettings).filter(
+            AccountSettings.account_id == account_id
+        ).all()
+        
+        return settings
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@app.put("/api/v1/accounts/{account_id}/settings")
+def update_account_settings(
+    account_id: int,
+    settings_updates: List[AccountSettingsUpdate],
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update account settings"""
+    try:
+        account_service = AccountService(db)
+        updated_settings = account_service.update_account_settings(
+            account_id, settings_updates, current_user
+        )
+        return {
+            "message": "Settings updated successfully",
+            "updated_count": len(updated_settings)
+        }
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@app.post("/api/v1/accounts/switch")
+def switch_active_account(
+    switch_request: AccountSwitchRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Switch user's active account context"""
+    try:
+        permission_service = PermissionService(db)
+        has_permission = permission_service.check_user_permission(
+            current_user.id,
+            switch_request.account_id,
+            PermissionLevel.VIEW
+        )
+        
+        if not has_permission:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No permission to access this account"
+            )
+        
+        # Get account details
+        account = db.query(Account).filter(Account.id == switch_request.account_id).first()
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Account not found"
+            )
+        
+        return {
+            "message": "Account switched successfully",
+            "active_account": {
+                "id": account.id,
+                "name": account.name,
+                "platform_username": account.platform_username
+            }
+        }
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 403, 404) without modification
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 if __name__ == "__main__":

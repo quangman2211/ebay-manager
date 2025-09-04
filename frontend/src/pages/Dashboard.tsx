@@ -5,17 +5,15 @@ import {
   Card,
   CardContent,
   Typography,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Chip,
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
-import { accountsAPI, ordersAPI, listingsAPI } from '../services/api';
+import { useAccount } from '../context/AccountContext';
+import { useAccountManagement } from '../hooks/useAccountManagement';
+import { ordersAPI, listingsAPI } from '../services/api';
 import { dashboardStyles } from '../styles/pages/dashboardStyles';
 import { useResponsive } from '../hooks/useResponsive';
-import type { Account, Order, Listing } from '../types';
+import type { Order, Listing } from '../types';
 
 interface DashboardStats {
   totalOrders: number;
@@ -29,9 +27,9 @@ interface DashboardStats {
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { state: accountState } = useAccount();
+  const { accounts } = useAccountManagement();
   const { isMini, isMobile, isTablet, breakpoint } = useResponsive();
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<number | ''>('');
   const [stats, setStats] = useState<DashboardStats>({
     totalOrders: 0,
     pendingOrders: 0,
@@ -57,36 +55,19 @@ const Dashboard: React.FC = () => {
   }, [breakpoint]);
 
   useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  useEffect(() => {
-    if (selectedAccount) {
-      loadStats();
-    }
-  }, [selectedAccount]);
-
-  const loadAccounts = async () => {
-    try {
-      const accountsData = await accountsAPI.getAccounts();
-      setAccounts(accountsData);
-      if (accountsData.length > 0) {
-        setSelectedAccount(accountsData[0].id);
-      }
-    } catch (error) {
-      console.error('Failed to load accounts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Load stats for both "All Accounts" (null) and specific accounts
+    loadStats();
+  }, [accountState.currentAccount]);
 
   const loadStats = async () => {
-    if (!selectedAccount) return;
-
+    setLoading(true);
     try {
+      // If currentAccount is null, get data from all accounts
+      // If currentAccount is set, get data from specific account
+      const accountId = accountState.currentAccount?.id;
       const [orders, listings] = await Promise.all([
-        ordersAPI.getOrders(selectedAccount as number),
-        listingsAPI.getListings(selectedAccount as number),
+        ordersAPI.getOrders(accountId),
+        listingsAPI.getListings(accountId),
       ]);
 
       // Calculate order stats
@@ -126,6 +107,8 @@ const Dashboard: React.FC = () => {
       });
     } catch (error) {
       console.error('Failed to load stats:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -155,31 +138,6 @@ const Dashboard: React.FC = () => {
         >
           Dashboard
         </Typography>
-        
-        <FormControl sx={dashboardStyles.accountSelect}>
-          <InputLabel sx={{
-            fontSize: isMini ? '0.75rem' : undefined
-          }}>
-            eBay Account
-          </InputLabel>
-          <Select
-            value={selectedAccount}
-            label="eBay Account"
-            onChange={(e) => setSelectedAccount(e.target.value as number | '')}
-            sx={{
-              '& .MuiSelect-select': {
-                fontSize: isMini ? '0.875rem' : undefined,
-                padding: isMini ? '8px 12px' : undefined
-              }
-            }}
-          >
-            {accounts.map((account) => (
-              <MenuItem key={account.id} value={account.id}>
-                {account.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
       </Box>
 
       <Box sx={{

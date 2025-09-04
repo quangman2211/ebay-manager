@@ -1,4 +1,4 @@
-// Mock axios before any imports that use it
+// Mock axios
 jest.mock('axios', () => ({
   create: jest.fn(() => ({
     get: jest.fn(),
@@ -13,19 +13,54 @@ jest.mock('axios', () => ({
   })),
 }));
 
+// Mock the config constants
+jest.mock('../../config/apiConstants', () => ({
+  getApiBaseUrl: () => 'http://localhost:8000',
+  API_ENDPOINTS: {
+    AUTH: {
+      LOGIN: '/login',
+      ME: '/me',
+    },
+    ACCOUNTS: {
+      LIST: '/accounts',
+      CREATE: '/accounts',
+      DETAILS: (id: number) => `/accounts/${id}/details`,
+      UPDATE: (id: number) => `/accounts/${id}`,
+      DELETE: (id: number) => `/accounts/${id}`,
+      SWITCH: '/accounts/switch',
+      SUGGEST: '/accounts/suggest',
+    },
+    CSV: {
+      UPLOAD: '/csv/upload',
+    },
+  },
+  HTTP_HEADERS: {
+    CONTENT_TYPE: {
+      FORM_DATA: 'multipart/form-data',
+    },
+  },
+  REQUEST_CONFIG: {
+    CSV_UPLOAD_TIMEOUT: 600000,
+  },
+}));
+
 import axios from 'axios';
 import { authAPI, accountsAPI, ordersAPI, listingsAPI, csvAPI, searchAPI } from '../api';
 import type { User, Account, Order, Listing, LoginResponse } from '../../types';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
-
-// Get the mock axios instance
-const mockAxiosInstance = mockedAxios.create() as any;
+const mockAxiosInstance = mockedAxios.create();
 
 describe('API Services', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    
+    // Setup default successful mock responses
+    (mockAxiosInstance.get as jest.Mock).mockResolvedValue({ data: {} });
+    (mockAxiosInstance.post as jest.Mock).mockResolvedValue({ data: {} });
+    (mockAxiosInstance.put as jest.Mock).mockResolvedValue({ data: {} });
+    (mockAxiosInstance.delete as jest.Mock).mockResolvedValue({ data: {} });
   });
 
   describe('authAPI', () => {
@@ -43,7 +78,7 @@ describe('API Services', () => {
           },
         };
 
-        mockAxiosInstance.post.mockResolvedValueOnce({ data: mockResponse });
+        (mockAxiosInstance.post as jest.Mock).mockResolvedValueOnce({ data: mockResponse });
 
         const result = await authAPI.login('testuser', 'password');
 
@@ -59,7 +94,7 @@ describe('API Services', () => {
           },
         };
 
-        mockAxiosInstance.post.mockRejectedValueOnce(errorResponse);
+        (mockAxiosInstance.post as jest.Mock).mockRejectedValueOnce(errorResponse);
 
         await expect(authAPI.login('invaliduser', 'wrongpass')).rejects.toEqual(errorResponse);
       });
@@ -84,7 +119,7 @@ describe('API Services', () => {
           is_active: true,
         };
 
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: mockUser });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: mockUser });
 
         const result = await authAPI.getCurrentUser();
 
@@ -122,7 +157,7 @@ describe('API Services', () => {
           },
         ];
 
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: mockAccounts });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: mockAccounts });
 
         const result = await accountsAPI.getAccounts();
 
@@ -131,7 +166,7 @@ describe('API Services', () => {
       });
 
       it('should handle empty accounts list', async () => {
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: [] });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: [] });
 
         const result = await accountsAPI.getAccounts();
 
@@ -169,7 +204,7 @@ describe('API Services', () => {
           },
         };
 
-        mockAxiosInstance.post.mockRejectedValueOnce(errorResponse);
+        (mockAxiosInstance.post as jest.Mock).mockRejectedValueOnce(errorResponse);
 
         await expect(accountsAPI.createAccount(newAccount)).rejects.toEqual(errorResponse);
       });
@@ -192,7 +227,7 @@ describe('API Services', () => {
           },
         ];
 
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: mockOrders });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: mockOrders });
 
         const result = await ordersAPI.getOrders();
 
@@ -202,7 +237,7 @@ describe('API Services', () => {
 
       it('should fetch orders with account filter', async () => {
         const mockOrders: Order[] = [];
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: mockOrders });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: mockOrders });
 
         const result = await ordersAPI.getOrders(1);
 
@@ -214,7 +249,7 @@ describe('API Services', () => {
 
       it('should fetch orders with status filter', async () => {
         const mockOrders: Order[] = [];
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: mockOrders });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: mockOrders });
 
         const result = await ordersAPI.getOrders(undefined, 'pending');
 
@@ -226,7 +261,7 @@ describe('API Services', () => {
 
       it('should fetch orders with both account and status filters', async () => {
         const mockOrders: Order[] = [];
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: mockOrders });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: mockOrders });
 
         const result = await ordersAPI.getOrders(1, 'shipped');
 
@@ -238,7 +273,7 @@ describe('API Services', () => {
 
     describe('updateOrderStatus', () => {
       it('should update single order status', async () => {
-        mockAxiosInstance.put.mockResolvedValueOnce({ data: {} });
+        (mockAxiosInstance.put as jest.Mock).mockResolvedValueOnce({ data: {} });
 
         await ordersAPI.updateOrderStatus(1, 'shipped');
 
@@ -270,7 +305,7 @@ describe('API Services', () => {
           errors: [],
         };
 
-        mockAxiosInstance.put.mockResolvedValueOnce({ data: mockResult });
+        (mockAxiosInstance.put as jest.Mock).mockResolvedValueOnce({ data: mockResult });
 
         const result = await ordersAPI.bulkUpdateOrderStatus([1, 2, 3], 'processing');
 
@@ -291,7 +326,7 @@ describe('API Services', () => {
 
         const auditContext = { userId: 1, operation: 'bulk_status_update' };
 
-        mockAxiosInstance.put.mockResolvedValueOnce({ data: mockResult });
+        (mockAxiosInstance.put as jest.Mock).mockResolvedValueOnce({ data: mockResult });
 
         const result = await ordersAPI.bulkUpdateOrderStatus([1, 2], 'completed', auditContext);
 
@@ -311,7 +346,7 @@ describe('API Services', () => {
           errors: ['Order 3: Already shipped'],
         };
 
-        mockAxiosInstance.put.mockResolvedValueOnce({ data: mockResult });
+        (mockAxiosInstance.put as jest.Mock).mockResolvedValueOnce({ data: mockResult });
 
         const result = await ordersAPI.bulkUpdateOrderStatus([1, 2, 3], 'completed');
 
@@ -338,7 +373,7 @@ describe('API Services', () => {
           },
         ];
 
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: mockListings });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: mockListings });
 
         const result = await listingsAPI.getListings();
 
@@ -348,7 +383,7 @@ describe('API Services', () => {
 
       it('should fetch listings with account filter', async () => {
         const mockListings: Listing[] = [];
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: mockListings });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: mockListings });
 
         const result = await listingsAPI.getListings(2);
 
@@ -370,7 +405,7 @@ describe('API Services', () => {
           errors: [],
         };
 
-        mockAxiosInstance.post.mockResolvedValueOnce({ data: mockResponse });
+        (mockAxiosInstance.post as jest.Mock).mockResolvedValueOnce({ data: mockResponse });
 
         const result = await csvAPI.uploadCSV(mockFile, 1, 'order');
 
@@ -394,7 +429,7 @@ describe('API Services', () => {
           errors: [],
         };
 
-        mockAxiosInstance.post.mockResolvedValueOnce({ data: mockResponse });
+        (mockAxiosInstance.post as jest.Mock).mockResolvedValueOnce({ data: mockResponse });
 
         const result = await csvAPI.uploadCSV(mockFile, 2, 'listing');
 
@@ -411,7 +446,7 @@ describe('API Services', () => {
           },
         };
 
-        mockAxiosInstance.post.mockRejectedValueOnce(errorResponse);
+        (mockAxiosInstance.post as jest.Mock).mockRejectedValueOnce(errorResponse);
 
         await expect(csvAPI.uploadCSV(mockFile, 1, 'order')).rejects.toEqual(errorResponse);
       });
@@ -436,7 +471,7 @@ describe('API Services', () => {
           { type: 'listing', id: 2, title: 'Item ITEM-002' },
         ];
 
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: mockResults });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: mockResults });
 
         const result = await searchAPI.globalSearch('test query');
 
@@ -447,7 +482,7 @@ describe('API Services', () => {
       });
 
       it('should handle empty search results', async () => {
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: [] });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: [] });
 
         const result = await searchAPI.globalSearch('nonexistent');
 
@@ -455,7 +490,7 @@ describe('API Services', () => {
       });
 
       it('should handle search with special characters', async () => {
-        mockAxiosInstance.get.mockResolvedValueOnce({ data: [] });
+        (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: [] });
 
         await searchAPI.globalSearch('test@example.com');
 
@@ -571,7 +606,7 @@ describe('API Services', () => {
 
     it('should handle timeout errors', async () => {
       const timeoutError = { code: 'ECONNABORTED' };
-      mockAxiosInstance.post.mockRejectedValueOnce(timeoutError);
+      (mockAxiosInstance.post as jest.Mock).mockRejectedValueOnce(timeoutError);
 
       await expect(authAPI.login('user', 'pass')).rejects.toEqual(timeoutError);
     });
@@ -586,7 +621,7 @@ describe('API Services', () => {
 
   describe('Edge Cases', () => {
     it('should handle undefined parameters gracefully', async () => {
-      mockAxiosInstance.get.mockResolvedValueOnce({ data: [] });
+      (mockAxiosInstance.get as jest.Mock).mockResolvedValueOnce({ data: [] });
 
       await ordersAPI.getOrders(undefined, undefined);
 
@@ -601,7 +636,7 @@ describe('API Services', () => {
         errors: [],
       };
 
-      mockAxiosInstance.put.mockResolvedValueOnce({ data: mockResult });
+      (mockAxiosInstance.put as jest.Mock).mockResolvedValueOnce({ data: mockResult });
 
       const result = await ordersAPI.bulkUpdateOrderStatus([], 'processing');
 
@@ -617,7 +652,7 @@ describe('API Services', () => {
         errors: [],
       };
 
-      mockAxiosInstance.put.mockResolvedValueOnce({ data: mockResult });
+      (mockAxiosInstance.put as jest.Mock).mockResolvedValueOnce({ data: mockResult });
 
       const result = await ordersAPI.bulkUpdateOrderStatus(largeOrderIds, 'processing');
 

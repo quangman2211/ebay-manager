@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Box,
@@ -13,9 +13,17 @@ import {
   Alert,
   CircularProgress,
   Chip,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  ListItemButton,
+  Divider,
+  Badge,
 } from '@mui/material';
-import { CloudUpload, CheckCircle, Error } from '@mui/icons-material';
-import { accountsAPI, csvAPI } from '../services/api';
+import { CloudUpload, CheckCircle, Error, AccountCircle, Person, Stars } from '@mui/icons-material';
+import { useAccount } from '../context/AccountContext';
+import { csvAPI, accountsAPI } from '../services/api';
 import { csvUploadStyles } from '../styles/pages/csvUploadStyles';
 import type { Account } from '../types';
 
@@ -26,46 +34,103 @@ interface UploadResult {
     inserted_count: number;
     duplicate_count: number;
     total_records: number;
+    detected_platform_username?: string;
   };
 }
 
+interface AccountSuggestion {
+  id: number;
+  name: string;
+  ebay_username: string | null;
+  platform_username: string | null;
+  match_type: 'exact' | 'partial';
+}
+
+interface SuggestionState {
+  detecting: boolean;
+  detectedUsername: string | null;
+  suggestions: AccountSuggestion[];
+  totalSuggestions: number;
+  showSuggestions: boolean;
+}
+
 const CSVUpload: React.FC = () => {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<number | ''>('');
+  const { state: accountState, dispatch } = useAccount();
   const [dataType, setDataType] = useState<'order' | 'listing'>('order');
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [suggestionState, setSuggestionState] = useState<SuggestionState>({
+    detecting: false,
+    detectedUsername: null,
+    suggestions: [],
+    totalSuggestions: 0,
+    showSuggestions: false,
+  });
 
-  useEffect(() => {
-    loadAccounts();
+  const handleAccountSuggestions = useCallback(async (file: File) => {
+    setSuggestionState(prev => ({ ...prev, detecting: true, showSuggestions: false }));
+    setUploadResult(null);
+    
+    try {
+      const suggestionResult = await csvAPI.suggestAccountsForCSV(file);
+      setSuggestionState({
+        detecting: false,
+        detectedUsername: suggestionResult.detected_username,
+        suggestions: suggestionResult.suggested_accounts,
+        totalSuggestions: suggestionResult.total_suggestions,
+        showSuggestions: suggestionResult.suggested_accounts.length > 0,
+      });
+    } catch (error: any) {
+      setSuggestionState({
+        detecting: false,
+        detectedUsername: null,
+        suggestions: [],
+        totalSuggestions: 0,
+        showSuggestions: false,
+      });
+      console.error('Failed to get account suggestions:', error);
+    }
   }, []);
 
-  const loadAccounts = async () => {
-    try {
-      const accountsData = await accountsAPI.getAccounts();
-      setAccounts(accountsData);
-      if (accountsData.length > 0) {
-        setSelectedAccount(accountsData[0].id);
-      }
-    } catch (error) {
-      console.error('Failed to load accounts:', error);
-    }
-  };
-
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (!selectedAccount || acceptedFiles.length === 0) return;
+    if (acceptedFiles.length === 0) return;
 
     const file = acceptedFiles[0];
+    setCurrentFile(file);
+    setUploadResult(null);
+
+    // If no account is selected, show suggestions
+    if (!accountState.currentAccount?.id) {
+      await handleAccountSuggestions(file);
+      return;
+    }
+
+    // Proceed with upload if account is selected
+    await uploadCSVFile(file, accountState.currentAccount.id);
+  }, [accountState.currentAccount?.id, handleAccountSuggestions]);
+
+  const uploadCSVFile = useCallback(async (file: File, accountId: number) => {
     setUploading(true);
     setUploadResult(null);
 
     try {
-      const result = await csvAPI.uploadCSV(file, selectedAccount as number, dataType);
+      const result = await csvAPI.uploadCSV(file, accountId, dataType);
       setUploadResult({
         success: true,
         message: 'File uploaded successfully!',
         details: result,
       });
+      
+      // Clear suggestions after successful upload
+      setSuggestionState({
+        detecting: false,
+        detectedUsername: null,
+        suggestions: [],
+        totalSuggestions: 0,
+        showSuggestions: false,
+      });
+      setCurrentFile(null);
     } catch (error: any) {
       setUploadResult({
         success: false,
@@ -74,7 +139,23 @@ const CSVUpload: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  }, [selectedAccount, dataType]);
+  }, [dataType]);
+
+  const handleSuggestedAccountSelect = useCallback(async (suggestion: AccountSuggestion) => {
+    // Find the full account from accounts list
+    const fullAccount = accountState.accounts.find(acc => acc.id === suggestion.id);
+    if (!fullAccount || !currentFile) return;
+
+    // Switch to the suggested account
+    dispatch({ type: 'SET_CURRENT_ACCOUNT', payload: fullAccount });
+    
+    // Upload the file
+    await uploadCSVFile(currentFile, suggestion.id);
+  }, [accountState.accounts, currentFile, dispatch, uploadCSVFile]);
+
+  const handleManualAccountSelect = useCallback(() => {
+    setSuggestionState(prev => ({ ...prev, showSuggestions: false }));
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -83,7 +164,7 @@ const CSVUpload: React.FC = () => {
       'application/vnd.ms-excel': ['.csv'],
     },
     maxFiles: 1,
-    disabled: !selectedAccount || uploading,
+    disabled: uploading || suggestionState.detecting,
   });
 
   return (
@@ -94,21 +175,6 @@ const CSVUpload: React.FC = () => {
 
       {/* Upload Configuration */}
       <Box sx={csvUploadStyles.configContainer}>
-        <FormControl sx={csvUploadStyles.accountSelect}>
-          <InputLabel>eBay Account</InputLabel>
-          <Select
-            value={selectedAccount}
-            label="eBay Account"
-            onChange={(e) => setSelectedAccount(e.target.value as number | '')}
-          >
-            {accounts.map((account) => (
-              <MenuItem key={account.id} value={account.id}>
-                {account.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
         <FormControl sx={csvUploadStyles.dataTypeSelect}>
           <InputLabel>Data Type</InputLabel>
           <Select
@@ -127,7 +193,7 @@ const CSVUpload: React.FC = () => {
         <CardContent>
           <Box
             {...getRootProps()}
-            sx={csvUploadStyles.dropzoneArea(!!selectedAccount, uploading, isDragActive)}
+            sx={csvUploadStyles.dropzoneArea(true, uploading || suggestionState.detecting, isDragActive)}
           >
             <input {...getInputProps()} />
             
@@ -138,21 +204,30 @@ const CSVUpload: React.FC = () => {
                   Uploading CSV file...
                 </Typography>
               </Box>
+            ) : suggestionState.detecting ? (
+              <Box>
+                <CircularProgress sx={csvUploadStyles.progressSpinner} />
+                <Typography variant="h6">
+                  Analyzing CSV file for account suggestions...
+                </Typography>
+              </Box>
             ) : (
               <Box>
                 <CloudUpload sx={csvUploadStyles.cloudIcon} />
                 <Typography variant="h6" sx={csvUploadStyles.uploadTitle}>
                   {isDragActive
                     ? 'Drop the CSV file here'
-                    : 'Drag & drop a CSV file here, or click to select'
+                    : accountState.currentAccount?.id
+                    ? 'Drag & drop a CSV file here, or click to select'
+                    : 'Drag & drop a CSV file - we\'ll suggest matching accounts'
                   }
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   Only CSV files are accepted
                 </Typography>
-                {!selectedAccount && (
-                  <Typography variant="body2" color="error" sx={csvUploadStyles.accountErrorText}>
-                    Please select an eBay account first
+                {!accountState.currentAccount?.id && !suggestionState.showSuggestions && (
+                  <Typography variant="body2" color="primary" sx={csvUploadStyles.accountErrorText}>
+                    💡 Smart Upload: Drop a CSV file and we'll detect your eBay username to suggest matching accounts!
                   </Typography>
                 )}
               </Box>
@@ -160,6 +235,118 @@ const CSVUpload: React.FC = () => {
           </Box>
         </CardContent>
       </Card>
+
+      {/* Account Suggestions */}
+      {suggestionState.showSuggestions && (
+        <Card sx={{ mt: 2, border: '2px solid', borderColor: 'primary.main' }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Stars color="primary" />
+              Account Suggestions
+              {suggestionState.detectedUsername && (
+                <Chip
+                  label={`Detected: ${suggestionState.detectedUsername}`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                />
+              )}
+            </Typography>
+            
+            {suggestionState.suggestions.length > 0 ? (
+              <Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  We found {suggestionState.totalSuggestions} matching account{suggestionState.totalSuggestions !== 1 ? 's' : ''}. Click on an account to upload the CSV file:
+                </Typography>
+                
+                <List>
+                  {suggestionState.suggestions.map((suggestion, index) => (
+                    <React.Fragment key={suggestion.id}>
+                      <ListItem disablePadding>
+                        <ListItemButton 
+                          onClick={() => handleSuggestedAccountSelect(suggestion)}
+                          sx={{
+                            border: '1px solid',
+                            borderColor: suggestion.match_type === 'exact' ? 'success.main' : 'warning.main',
+                            borderRadius: 1,
+                            mb: 1,
+                            '&:hover': {
+                              backgroundColor: suggestion.match_type === 'exact' ? 'success.50' : 'warning.50',
+                            },
+                          }}
+                        >
+                          <ListItemIcon>
+                            <Badge 
+                              badgeContent={suggestion.match_type === 'exact' ? '✓' : '~'} 
+                              color={suggestion.match_type === 'exact' ? 'success' : 'warning'}
+                            >
+                              <AccountCircle color={suggestion.match_type === 'exact' ? 'success' : 'warning'} />
+                            </Badge>
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                                  {suggestion.name}
+                                </Typography>
+                                <Chip
+                                  label={suggestion.match_type === 'exact' ? 'Exact Match' : 'Partial Match'}
+                                  size="small"
+                                  color={suggestion.match_type === 'exact' ? 'success' : 'warning'}
+                                  variant="outlined"
+                                />
+                              </Box>
+                            }
+                            secondary={
+                              <Box>
+                                {suggestion.ebay_username && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    eBay Username: {suggestion.ebay_username}
+                                  </Typography>
+                                )}
+                                {suggestion.platform_username && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    Platform ID: {suggestion.platform_username}
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                      {index < suggestionState.suggestions.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+                </List>
+                
+                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    variant="text"
+                    onClick={handleManualAccountSelect}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Or select account manually from dropdown above
+                  </Button>
+                </Box>
+              </Box>
+            ) : (
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  No matching accounts found. Please select an account manually from the dropdown above.
+                </Typography>
+                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleManualAccountSelect}
+                  >
+                    Select Account Manually
+                  </Button>
+                </Box>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Upload Result */}
       {uploadResult && (
@@ -191,6 +378,14 @@ const CSVUpload: React.FC = () => {
                 color="info"
                 size="small"
               />
+              {uploadResult.details.detected_platform_username && (
+                <Chip 
+                  label={`Auto-detected: ${uploadResult.details.detected_platform_username}`}
+                  color="primary"
+                  size="small"
+                  variant="outlined"
+                />
+              )}
             </Box>
           )}
         </Alert>
@@ -203,6 +398,19 @@ const CSVUpload: React.FC = () => {
             Instructions
           </Typography>
           
+          <Typography variant="body2" sx={csvUploadStyles.instructionText}>
+            <strong>🚀 Smart Upload Feature:</strong>
+          </Typography>
+          <Typography variant="body2" sx={csvUploadStyles.instructionDetails}>
+            • Drop a CSV file without selecting an account first
+            <br />
+            • The system will automatically detect your eBay username from the CSV
+            <br />
+            • Matching accounts will be suggested based on detected username
+            <br />
+            • Click on a suggested account to upload instantly
+          </Typography>
+
           <Typography variant="body2" sx={csvUploadStyles.instructionText}>
             <strong>For Orders:</strong>
           </Typography>

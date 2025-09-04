@@ -10,18 +10,17 @@ import {
   Snackbar,
 } from '@mui/material';
 import { DataGrid, GridRowSelectionModel } from '@mui/x-data-grid';
-import { accountsAPI } from '../services/api';
+import { useAccount } from '../context/AccountContext';
 import OrderDataService from '../services/OrderDataService';
 import { orderColumns } from '../config/OrderTableColumns';
 import { orderStyles } from '../styles/pages/orderStyles';
 import { spacing } from '../styles/common/spacing';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import BulkOperationsToolbar from '../components/BulkOperations/BulkOperationsToolbar';
-import type { Account, Order, BulkOperationResult } from '../types';
+import type { Order, BulkOperationResult } from '../types';
 
 const Orders: React.FC = () => {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<number | ''>('');
+  const { state: accountState } = useAccount();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,34 +46,18 @@ const Orders: React.FC = () => {
   });
 
   useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  useEffect(() => {
-    if (selectedAccount) {
-      loadOrders();
-    }
-  }, [selectedAccount, statusFilter]);
-
-  const loadAccounts = async () => {
-    try {
-      const accountsData = await accountsAPI.getAccounts();
-      setAccounts(accountsData);
-      if (accountsData.length > 0) {
-        setSelectedAccount(accountsData[0].id);
-      }
-    } catch (error) {
-      console.error('Failed to load accounts:', error);
-    }
-  };
+    // Load orders for both "All Accounts" (null) and specific accounts
+    loadOrders();
+  }, [accountState.currentAccount, statusFilter]);
 
   const loadOrders = async () => {
-    if (!selectedAccount) return;
-    
     setLoading(true);
     try {
+      // If currentAccount is null, get orders from all accounts
+      // If currentAccount is set, get orders from specific account
+      const accountId = accountState.currentAccount?.id;
       const ordersData = await OrderDataService.fetchOrders(
-        selectedAccount as number,
+        accountId,
         statusFilter || undefined
       );
       setOrders(ordersData);
@@ -183,21 +166,6 @@ const Orders: React.FC = () => {
         </Typography>
         
         <Box sx={orderStyles.filtersContainer}>
-          <FormControl sx={orderStyles.accountSelect}>
-            <InputLabel>eBay Account</InputLabel>
-            <Select
-              value={selectedAccount}
-              label="eBay Account"
-              onChange={(e) => setSelectedAccount(e.target.value as number | '')}
-            >
-              {accounts.map((account) => (
-                <MenuItem key={account.id} value={account.id}>
-                  {account.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
           <FormControl sx={orderStyles.statusSelect}>
             <InputLabel>Status Filter</InputLabel>
             <Select

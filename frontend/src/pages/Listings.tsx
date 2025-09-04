@@ -2,34 +2,25 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   TextField,
   Chip,
 } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { accountsAPI, listingsAPI } from '../services/api';
-import type { Account, Listing } from '../types';
+import { useAccount } from '../context/AccountContext';
+import { listingsAPI } from '../services/api';
+import type { Listing } from '../types';
 
 const Listings: React.FC = () => {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<number | ''>('');
+  const { state: accountState } = useAccount();
   const [searchText, setSearchText] = useState('');
   const [listings, setListings] = useState<Listing[]>([]);
   const [filteredListings, setFilteredListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  useEffect(() => {
-    if (selectedAccount) {
-      loadListings();
-    }
-  }, [selectedAccount]);
+    // Load listings for both "All Accounts" (null) and specific accounts
+    loadListings();
+  }, [accountState.currentAccount]);
 
   useEffect(() => {
     // Filter listings based on search text
@@ -45,24 +36,13 @@ const Listings: React.FC = () => {
     }
   }, [listings, searchText]);
 
-  const loadAccounts = async () => {
-    try {
-      const accountsData = await accountsAPI.getAccounts();
-      setAccounts(accountsData);
-      if (accountsData.length > 0) {
-        setSelectedAccount(accountsData[0].id);
-      }
-    } catch (error) {
-      console.error('Failed to load accounts:', error);
-    }
-  };
-
   const loadListings = async () => {
-    if (!selectedAccount) return;
-    
     setLoading(true);
     try {
-      const listingsData = await listingsAPI.getListings(selectedAccount as number);
+      // If currentAccount is null, get listings from all accounts
+      // If currentAccount is set, get listings from specific account
+      const accountId = accountState.currentAccount?.id;
+      const listingsData = await listingsAPI.getListings(accountId);
       setListings(listingsData);
     } catch (error) {
       console.error('Failed to load listings:', error);
@@ -182,21 +162,6 @@ const Listings: React.FC = () => {
             onChange={(e) => setSearchText(e.target.value)}
             sx={{ minWidth: 300 }}
           />
-
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>eBay Account</InputLabel>
-            <Select
-              value={selectedAccount}
-              label="eBay Account"
-              onChange={(e) => setSelectedAccount(e.target.value as number | '')}
-            >
-              {accounts.map((account) => (
-                <MenuItem key={account.id} value={account.id}>
-                  {account.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
         </Box>
       </Box>
 

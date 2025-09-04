@@ -2,14 +2,14 @@ import { ordersAPI } from './api';
 import type { Order, BulkOperationResult } from '../types';
 
 export interface IOrderDataService {
-  fetchOrders(accountId: number, status?: string): Promise<Order[]>;
+  fetchOrders(accountId?: number, status?: string): Promise<Order[]>;
   updateOrderStatus(orderId: number, status: string): Promise<void>;
   bulkUpdateOrderStatus(orderIds: number[], status: string): Promise<BulkOperationResult>;
   bulkUpdateOrderStatusWithAudit(orderIds: number[], status: string, userId: number): Promise<BulkOperationResult>;
 }
 
 class OrderDataService implements IOrderDataService {
-  async fetchOrders(accountId: number, status?: string): Promise<Order[]> {
+  async fetchOrders(accountId?: number, status?: string): Promise<Order[]> {
     try {
       return await ordersAPI.getOrders(accountId, status);
     } catch (error) {

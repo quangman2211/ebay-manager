@@ -1,0 +1,7 @@
+"Item number","Title","Available quantity","Current price","Sold quantity","Format"
+"LISTING001","Test Product A","5","$25.99","2","Auction"
+"LISTING002","Test Product B","10","$15.50","5","Buy It Now"
+"LISTING003","Test Product C","1","$99.99","0","Auction"
+"LISTING004","Test Product D","3","$45.00","1","Buy It Now"
+
+Seller ID : test_ebay_user

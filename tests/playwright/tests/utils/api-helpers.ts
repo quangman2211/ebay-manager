@@ -128,6 +128,96 @@ export class ApiHelper {
     expect(response.ok()).toBeTruthy();
     return await response.json();
   }
+
+  /**
+   * Get account deletion impact
+   */
+  async getDeletionImpact(accountId: number): Promise<any> {
+    const response = await this.request.get(`${apiEndpoints.backend}/api/v1/accounts/${accountId}/deletion-impact`);
+    if (response.ok()) {
+      return await response.json();
+    }
+    return null;
+  }
+
+  /**
+   * Delete account with options (transfer or delete)
+   */
+  async deleteAccount(token: string, accountId: number, action: 'transfer' | 'delete'): Promise<any> {
+    const response = await this.request.delete(`${apiEndpoints.backend}/api/v1/accounts/${accountId}?action=${action}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    if (response.ok()) {
+      return await response.json();
+    }
+    return null;
+  }
+
+  /**
+   * Get account suggestions for CSV file
+   */
+  async getAccountSuggestions(token: string, filePath: string): Promise<any> {
+    const response = await this.request.post(`${apiEndpoints.backend}/api/v1/accounts/suggest`, {
+      multipart: {
+        file: filePath,
+      },
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (response.ok()) {
+      return await response.json();
+    }
+    return null;
+  }
+
+  /**
+   * Enhanced CSV upload
+   */
+  async uploadCSVEnhanced(token: string, filePath: string, accountId: number, dataType: 'order' | 'listing'): Promise<any> {
+    const response = await this.request.post(`${apiEndpoints.backend}/api/v1/csv/upload-enhanced`, {
+      multipart: {
+        file: filePath,
+        account_id: accountId.toString(),
+        data_type: dataType,
+      },
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (response.ok()) {
+      return await response.json();
+    }
+    return null;
+  }
+
+  /**
+   * Get upload progress
+   */
+  async getUploadProgress(token: string, uploadId: string): Promise<any> {
+    const response = await this.request.get(`${apiEndpoints.backend}/api/v1/upload/progress/${uploadId}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    if (response.ok()) {
+      return await response.json();
+    }
+    return null;
+  }
+
+  /**
+   * Check GUEST account health
+   */
+  async checkGuestAccountHealth(): Promise<any> {
+    const response = await this.request.get(`${apiEndpoints.backend}/api/v1/health/guest-account`);
+    if (response.ok()) {
+      return await response.json();
+    }
+    return null;
+  }
 }
 
 /**

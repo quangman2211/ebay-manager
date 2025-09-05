@@ -251,6 +251,25 @@ export const csvAPI = {
     return response.data;
   },
 
+  detectDataType: async (file: File): Promise<{
+    detected_type: 'order' | 'listing' | null;
+    confidence: 'high' | 'low';
+    columns: string[];
+    total_columns: number;
+    message: string;
+  }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await api.post('/csv/detect-data-type', formData, {
+      headers: {
+        'Content-Type': HTTP_HEADERS.CONTENT_TYPE.FORM_DATA,
+      },
+      timeout: REQUEST_CONFIG.DEFAULT_TIMEOUT,
+    });
+    return response.data;
+  },
+
   getUploadProgress: async (uploadId: string): Promise<{
     success: boolean;
     upload_id?: string;

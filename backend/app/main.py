@@ -293,6 +293,55 @@ def suggest_accounts_for_csv(
         )
 
 
+@app.post("/api/v1/csv/detect-data-type")
+def detect_data_type(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Detect data type (order/listing) automatically from CSV content
+    Returns detected type and column information for frontend auto-selection
+    """
+    try:
+        # Read file content for analysis
+        content = file.file.read().decode('utf-8')
+        file.file.seek(0)  # Reset file pointer
+        
+        # Use the enhanced eBay strategy to detect data type
+        from app.strategies.ebay_csv_strategy import EBayCSVStrategy
+        strategy = EBayCSVStrategy()
+        
+        # Detect data type using the enhanced strategy
+        detected_type = strategy.detect_data_type(content)
+        
+        # Also get column information for transparency
+        try:
+            df = strategy._parse_csv_content(content)
+            columns = list(df.columns) if not df.empty else []
+        except Exception:
+            columns = []
+        
+        return {
+            "detected_type": detected_type,
+            "confidence": "high" if detected_type else "low",
+            "columns": columns[:10],  # Show first 10 columns for transparency
+            "total_columns": len(columns),
+            "message": f"Detected as {detected_type} data" if detected_type else "Could not auto-detect data type"
+        }
+        
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be UTF-8 encoded"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error detecting data type: {str(e)}"
+        )
+
+
 @app.post("/api/v1/accounts", response_model=AccountResponse)
 def create_account(
     account: AccountCreate,

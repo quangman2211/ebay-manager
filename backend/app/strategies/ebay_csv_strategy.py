@@ -75,6 +75,32 @@ class EBayCSVStrategy(IUploadStrategy):
             username = self._extract_username_from_filename(context.filename)
         
         return username
+
+    def detect_data_type(self, content: str) -> Optional[str]:
+        """Detect if CSV contains orders or listings based on columns"""
+        try:
+            df = self._parse_csv_content(content)
+            columns = [col.lower() for col in df.columns]
+            
+            # Check for order-specific columns
+            order_indicators = ['order number', 'buyer username', 'buyer name', 'sale date']
+            order_score = sum(1 for col in order_indicators if any(col in c for c in columns))
+            
+            # Check for listing-specific columns  
+            listing_indicators = ['item number', 'available quantity', 'current price', 'sold quantity']
+            listing_score = sum(1 for col in listing_indicators if any(col in c for c in columns))
+            
+            # Return best match
+            if order_score > listing_score and order_score >= 2:
+                return 'order'
+            elif listing_score > order_score and listing_score >= 2:
+                return 'listing'
+            
+            return None  # Cannot determine
+            
+        except Exception as e:
+            logger.error(f"Error detecting data type: {e}")
+            return None
     
     def process(self, content: str, context: UploadContext) -> UploadResult:
         """Main processing orchestration"""
@@ -135,8 +161,12 @@ class EBayCSVStrategy(IUploadStrategy):
             # Skip empty lines and footer lines
             if not line.strip() or line.strip().replace(',', '').replace('"', '') == '':
                 continue
-            # Skip eBay footer lines
-            if line.strip().startswith('Seller ID') or line.strip().startswith('Report'):
+            # Skip eBay footer/metadata lines
+            if (line.strip().startswith('Seller ID') or 
+                line.strip().startswith('Report') or
+                'record(s) downloaded' in line.strip() or
+                line.strip().isdigit() or  # Line with just a number
+                (line.count(',') < 3 and not any(col in line for col in ['Order Number', 'Item number', 'Title']))):  # Lines with too few columns
                 continue
             data_lines.append(line)
         

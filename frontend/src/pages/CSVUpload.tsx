@@ -331,12 +331,24 @@ const CSVUpload: React.FC = () => {
       try {
         const suggestionResult = await csvAPI.suggestAccountsForCSV(file);
         
+        // Auto-detect data type for this file
+        let detectedDataType = DEFAULT_DATA_TYPE;
+        try {
+          const dataTypeResult = await csvAPI.detectDataType(file);
+          if (dataTypeResult.detected_type && dataTypeResult.confidence === 'high') {
+            detectedDataType = dataTypeResult.detected_type as DataType;
+            console.log(`Auto-detected data type: ${detectedDataType} for file ${file.name}`);
+          }
+        } catch (error) {
+          console.warn('Failed to auto-detect data type:', error);
+        }
+        
         const bulkFile: BulkUploadFile = {
           id: fileId,
           file: file,
           status: 'pending',
           progress: 0,
-          dataType: DEFAULT_DATA_TYPE,
+          dataType: detectedDataType, // Use detected type instead of default
           detectedUsername: suggestionResult.detected_username || undefined,
           suggestedAccounts: suggestionResult.suggested_accounts.map(acc => ({
             id: acc.id,
@@ -360,6 +372,7 @@ const CSVUpload: React.FC = () => {
           status: 'pending',
           progress: 0,
           dataType: DEFAULT_DATA_TYPE,
+          detectedUsername: undefined,
           suggestedAccounts: [],
         });
       }

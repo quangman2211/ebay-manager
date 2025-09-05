@@ -24,6 +24,8 @@ from app.auth import (
 )
 from app.config import settings
 from app.csv_service import CSVProcessor
+from app.services.upload_service import UniversalUploadService
+from app.interfaces.upload_strategy import UploadContext, UploadSourceType
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -108,61 +110,30 @@ def suggest_accounts_for_csv(
     db: Session = Depends(get_db)
 ):
     """
-    PHASE 2.3: Suggest matching accounts based on detected username from CSV
-    This endpoint analyzes CSV content/filename and suggests matching accounts
+    Suggest matching accounts based on detected username from CSV
+    Uses the new Universal Upload Service with Strategy Pattern
     """
     try:
-        # Read file content for username detection
+        # Read file content
         content = file.file.read().decode('utf-8')
         file.file.seek(0)  # Reset file pointer
         
-        # Detect username from content and filename
-        detected_username = CSVProcessor.detect_platform_username(
-            content,
-            filename=file.filename or "",
-            account_type="ebay"  # Default to eBay for now
+        # Use Universal Upload Service for suggestions
+        upload_service = UniversalUploadService(db)
+        
+        # Create context for username detection
+        context = UploadContext(
+            account_id=0,  # Not needed for detection
+            data_type="order",  # Default type
+            user_id=current_user.id,
+            filename=file.filename
         )
         
-        # Get user's accessible accounts
-        if current_user.role == "admin":
-            accounts = db.query(Account).filter(Account.is_active == True).all()
-        else:
-            accounts = db.query(Account).filter(
-                Account.user_id == current_user.id,
-                Account.is_active == True
-            ).all()
+        # Detect source type and get suggestions
+        source_type = upload_service.detect_source_type(file)
+        suggestions = upload_service.get_account_suggestions(content, source_type, context)
         
-        # Find matching accounts
-        suggested_accounts = []
-        exact_matches = []
-        partial_matches = []
-        
-        if detected_username:
-            for account in accounts:
-                # Exact match with platform_username
-                if account.platform_username == detected_username:
-                    exact_matches.append(account)
-                # Partial match with platform_username or name
-                elif (detected_username.lower() in (account.platform_username or "").lower() or
-                      detected_username.lower() in account.name.lower()):
-                    partial_matches.append(account)
-        
-        # Prioritize exact matches first, then partial matches
-        suggested_accounts = exact_matches + partial_matches
-        
-        return {
-            "detected_username": detected_username,
-            "suggested_accounts": [
-                {
-                    "id": acc.id,
-                    "name": acc.name,
-                    "platform_username": acc.platform_username,
-                    "match_type": "exact" if acc in exact_matches else "partial"
-                }
-                for acc in suggested_accounts[:5]  # Limit to top 5 suggestions
-            ],
-            "total_suggestions": len(suggested_accounts)
-        }
+        return suggestions
         
     except UnicodeDecodeError:
         raise HTTPException(
@@ -245,89 +216,38 @@ def upload_csv(
             detail="File must be UTF-8 encoded"
         )
     
-    # PHASE 2.1-2.2: eBay username detection with filename support
-    detected_username = CSVProcessor.detect_platform_username(
-        content, 
-        filename=file.filename or "",
-        account_type=account.account_type or "ebay"
+    # Use new Universal Upload Service
+    upload_service = UniversalUploadService(db)
+    
+    # Create upload context
+    context = UploadContext(
+        account_id=account_id,
+        data_type=data_type,
+        user_id=current_user.id,
+        filename=file.filename
     )
-    if detected_username and not account.platform_username:
-        # Auto-update account with detected username
-        account.platform_username = detected_username
-        db.commit()
-        logger.info(f"Auto-detected and saved platform username: {detected_username} for account {account.name}")
     
-    # Process CSV
-    records, errors = CSVProcessor.process_csv_file(content, data_type_enum)
-    if errors:
+    # Detect source type
+    source_type = upload_service.detect_source_type(file)
+    
+    # Process upload with strategy pattern
+    result = upload_service.process_upload(content, source_type, context)
+    
+    if not result.success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"CSV processing errors: {'; '.join(errors)}"
+            detail=result.message,
+            headers={"errors": str(result.errors)} if result.errors else None
         )
     
-    # Check for duplicates in the upload
-    duplicate_errors = CSVProcessor.check_duplicates(records, data_type_enum)
-    if duplicate_errors:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Duplicate data errors: {'; '.join(duplicate_errors)}"
-        )
-    
-    # Process each record
-    inserted_count = 0
-    duplicate_count = 0
-    
-    for record in records:
-        item_id = CSVProcessor.extract_item_id(record, data_type_enum)
-        
-        # Check if record already exists
-        existing_record = db.query(CSVData).filter(
-            CSVData.account_id == account_id,
-            CSVData.data_type == data_type_enum.value,
-            CSVData.item_id == item_id
-        ).first()
-        
-        if existing_record:
-            duplicate_count += 1
-            continue
-        
-        # Create new CSV data record
-        csv_data = CSVData(
-            account_id=account_id,
-            data_type=data_type_enum.value,
-            csv_row=record,
-            item_id=item_id
-        )
-        db.add(csv_data)
-        
-        # If it's an order, create initial status
-        if data_type_enum == DataType.ORDER:
-            db.flush()  # Get the CSV data ID
-            order_status = OrderStatus(
-                csv_data_id=csv_data.id,
-                status="pending",
-                updated_by=current_user.id
-            )
-            db.add(order_status)
-        
-        inserted_count += 1
-    
-    db.commit()
-    
-    # PHASE 2.1: Enhanced response with detected username info  
-    response = {
-        "message": "CSV uploaded successfully",
-        "inserted_count": inserted_count,
-        "duplicate_count": duplicate_count,
-        "total_records": len(records)
+    # Return success response
+    return {
+        "message": result.message,
+        "inserted_count": result.inserted_count,
+        "duplicate_count": result.duplicate_count,
+        "total_records": result.total_records,
+        "detected_platform_username": result.detected_username
     }
-    
-    # Include detected username in response if found
-    if detected_username:
-        response["detected_platform_username"] = detected_username
-        response["message"] += f" (Auto-detected seller: {detected_username})"
-    
-    return response
 
 
 @app.get("/api/v1/orders", response_model=List[OrderResponse])

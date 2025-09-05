@@ -20,6 +20,7 @@ import { useAccount } from '../context/AccountContext';
 import AccountDataGrid from '../components/AccountManagement/AccountDataGrid';
 import AccountForm from '../components/AccountManagement/AccountForm';
 import AccountPermissionsDialog from '../components/AccountManagement/AccountPermissionsDialog';
+import AccountDeletionDialog from '../components/AccountManagement/AccountDeletionDialog';
 import { Account } from '../types';
 
 /**
@@ -34,7 +35,9 @@ const AccountManagement: React.FC = () => {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [permissionsAccount, setPermissionsAccount] = useState<Account | null>(null);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+  const [deletionDialogOpen, setDeletionDialogOpen] = useState(false);
+  const [deletionAccount, setDeletionAccount] = useState<Account | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
     open: false,
     message: '',
     severity: 'success'
@@ -114,22 +117,48 @@ const AccountManagement: React.FC = () => {
   };
 
   const handleDeleteAccount = async (accountId: number) => {
-    if (window.confirm('Are you sure you want to deactivate this account?')) {
-      try {
-        await deactivateAccount(accountId);
-        setSnackbar({
-          open: true,
-          message: 'Account deactivated successfully',
-          severity: 'success'
-        });
-      } catch (error) {
-        setSnackbar({
-          open: true,
-          message: error instanceof Error ? error.message : 'Failed to deactivate account',
-          severity: 'error'
-        });
-      }
+    const account = accounts.find(acc => acc.id === accountId);
+    if (account) {
+      setDeletionAccount(account);
+      setDeletionDialogOpen(true);
     }
+  };
+
+  const handleDeletionConfirm = async (action: 'transfer' | 'delete') => {
+    if (!deletionAccount) return;
+
+    try {
+      const result = await deactivateAccount(deletionAccount.id, action);
+      
+      setSnackbar({
+        open: true,
+        message: result.message,
+        severity: 'success'
+      });
+
+      // Show additional info if needed
+      if (result.next_action) {
+        setTimeout(() => {
+          setSnackbar({
+            open: true,
+            message: result.next_action || '',
+            severity: 'info'
+          });
+        }, 3000);
+      }
+      
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : 'Failed to process account deletion',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleDeletionDialogClose = () => {
+    setDeletionDialogOpen(false);
+    setDeletionAccount(null);
   };
 
   const handleSwitchAccount = async (account: Account) => {
@@ -280,7 +309,14 @@ const AccountManagement: React.FC = () => {
         account={permissionsAccount}
       />
 
-
+      {/* Account Deletion Dialog */}
+      <AccountDeletionDialog
+        open={deletionDialogOpen}
+        account={deletionAccount}
+        onClose={handleDeletionDialogClose}
+        onConfirm={handleDeletionConfirm}
+        loading={loading}
+      />
 
       {/* Success/Error Snackbar */}
       <Snackbar

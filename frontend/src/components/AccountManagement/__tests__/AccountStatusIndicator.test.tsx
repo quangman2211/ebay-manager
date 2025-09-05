@@ -30,7 +30,7 @@ describe('AccountStatusIndicator', () => {
     mockAccount = createMockAccount({
       id: 1,
       name: 'Test Store',
-      ebay_username: 'teststore',
+      platform_username: 'teststore',
       connection_status: CONNECTION_STATUSES.AUTHENTICATED,
       is_active: true,
       data_processing_enabled: true,
@@ -377,7 +377,7 @@ describe('AccountStatusIndicator', () => {
       const minimalAccount = createMockAccount({
         id: 1,
         name: 'Minimal',
-        ebay_username: 'minimal',
+        platform_username: 'minimal',
         user_id: 1,
         is_active: true,
         created_at: '2024-01-01T00:00:00.000Z',
@@ -400,8 +400,13 @@ describe('AccountStatusIndicator', () => {
     });
 
     it('should handle all auth status combinations', () => {
-      const authStatuses: Array<'active' | CONNECTION_STATUSES.PENDING | CONNECTION_STATUSES.EXPIRED | CONNECTION_STATUSES.FAILED | undefined> = 
-        ['active', CONNECTION_STATUSES.PENDING, CONNECTION_STATUSES.EXPIRED, CONNECTION_STATUSES.FAILED, undefined];
+      const authStatuses = [
+        'active', 
+        CONNECTION_STATUSES.PENDING, 
+        CONNECTION_STATUSES.EXPIRED, 
+        CONNECTION_STATUSES.FAILED, 
+        undefined
+      ] as const;
 
       authStatuses.forEach((status) => {
         const testAccount = createMockAccount({

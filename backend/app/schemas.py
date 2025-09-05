@@ -33,11 +33,13 @@ class ConnectionStatus(str, Enum):
     PENDING = "pending"
     EXPIRED = "expired"
     FAILED = "failed"
+    SYSTEM = "system"
 
 
 class AccountType(str, Enum):
     EBAY = "ebay"
     ETSY = "etsy"
+    SYSTEM = "system"
 
 
 class UserBase(BaseModel):

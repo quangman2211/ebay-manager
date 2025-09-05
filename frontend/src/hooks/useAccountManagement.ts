@@ -15,7 +15,16 @@ interface UseAccountManagementReturn {
   getAccountDetails: (accountId: number) => Promise<EnhancedAccount>;
   createAccount: (accountData: Omit<Account, 'id' | 'created_at'>) => Promise<Account>;
   updateAccount: (accountId: number, updates: Partial<Account>) => Promise<Account>;
-  deactivateAccount: (accountId: number) => Promise<void>;
+  deactivateAccount: (accountId: number, action?: string) => Promise<{
+    action: string;
+    message: string;
+    account_id: number;
+    account_name: string;
+    data_impact?: any;
+    transfer_summary?: any;
+    deletion_summary?: any;
+    next_action?: string;
+  }>;
   switchAccount: (accountId: number) => Promise<void>;
   syncAccounts: () => Promise<void>;
   startAutoSync: () => void;
@@ -54,7 +63,7 @@ export const useAccountManagement = (): UseAccountManagementReturn => {
           setLoading(true);
           clearContextError();
           setSyncStatus('syncing');
-          const data = await accountsAPI.getAccounts();
+          const data = await accountsAPI.getAccounts(true);
           setAccounts(data);
           setSyncStatus('success');
           setLastSyncAt(new Date().toISOString());
@@ -102,7 +111,7 @@ export const useAccountManagement = (): UseAccountManagementReturn => {
       setLoading(true);
       clearError();
       setSyncStatus('syncing');
-      const data = await accountsAPI.getAccounts();
+      const data = await accountsAPI.getAccounts(true);
       setAccounts(data);
       setSyncStatus('success');
       setLastSyncAt(new Date().toISOString());
@@ -152,17 +161,37 @@ export const useAccountManagement = (): UseAccountManagementReturn => {
     }
   }, [clearError, updateAccountInContext, setError]);
 
-  const deactivateAccount = useCallback(async (accountId: number): Promise<void> => {
+  const deactivateAccount = useCallback(async (accountId: number, action: string = 'transfer'): Promise<{
+    action: string;
+    message: string;
+    account_id: number;
+    account_name: string;
+    data_impact?: any;
+    transfer_summary?: any;
+    deletion_summary?: any;
+    next_action?: string;
+  }> => {
     try {
       clearError();
-      await accountsAPI.deactivateAccount(accountId);
-      updateAccountInContext({ id: accountId, is_active: false } as Account);
+      const result = await accountsAPI.deactivateAccount(accountId, action);
+      
+      // Update local state based on action
+      if (result.action === 'deactivated') {
+        updateAccountInContext({ id: accountId, is_active: false } as Account);
+      } else if (result.action === 'transferred' || result.action === 'deleted') {
+        // Remove account from local state completely
+        updateAccountInContext({ id: accountId, is_active: false } as Account);
+        // Refresh accounts to get updated state
+        setTimeout(() => fetchAccounts(), 1000);
+      }
+      
+      return result;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to deactivate account';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process account deletion';
       setError(errorMessage);
       throw new Error(errorMessage);
     }
-  }, [clearError, updateAccountInContext, setError]);
+  }, [clearError, updateAccountInContext, setError, fetchAccounts]);
 
   const switchAccount = useCallback(async (accountId: number): Promise<void> => {
     try {

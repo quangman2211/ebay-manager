@@ -51,7 +51,7 @@ describe('AccountPermissionsDialog - Basic Tests', () => {
     mockAccount = createMockAccount({
       id: 1,
       name: 'Test Store',
-      ebay_username: 'teststore',
+      platform_username: 'teststore',
     });
 
     mockOnClose = jest.fn();

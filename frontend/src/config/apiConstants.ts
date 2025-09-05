@@ -37,6 +37,10 @@ export const API_ENDPOINTS = {
   },
   CSV: {
     UPLOAD: '/csv/upload',
+    UPLOAD_ENHANCED: '/csv/upload-enhanced',
+  },
+  UPLOAD: {
+    PROGRESS: (id: string) => `/upload/progress/${id}`,
   },
   ORDERS: {
     LIST: '/orders',

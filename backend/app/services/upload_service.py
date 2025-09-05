@@ -1,251 +1,170 @@
 """
-Universal Upload Service - Orchestrates upload strategies
-Dependency Inversion: Depends on IUploadStrategy abstraction
-Single Responsibility: Only handles strategy selection and orchestration
+Universal Upload Service - SOLID Compliant
+Extracts existing CSV upload logic from main.py
+Single Responsibility: Handle CSV upload processing only
 """
-from typing import Dict, Any, Optional, List, Type
+from typing import List, Dict, Any, Tuple
+from sqlalchemy.orm import Session
 from fastapi import UploadFile
 import logging
 
-from app.interfaces.upload_strategy import (
-    IUploadStrategy, UploadContext, UploadResult, UploadSourceType
-)
-from app.strategies.ebay_csv_strategy import EBayCSVStrategy
-from sqlalchemy.orm import Session
-from app.models import CSVData, Account
+from app.models import Account, CSVData, OrderStatus, User
+from app.schemas import DataType
+from app.csv_service import CSVProcessor
+from app.interfaces.upload_strategy import UploadResult, UploadContext, UploadSourceType
 
 logger = logging.getLogger(__name__)
 
 
-class StrategyFactory:
-    """
-    Factory for creating upload strategies
-    Open/Closed Principle: Easy to add new strategies without modifying existing code
-    """
-    
-    _strategies: Dict[UploadSourceType, Type[IUploadStrategy]] = {
-        UploadSourceType.CSV_FILE: EBayCSVStrategy,
-        # Future strategies will be added here:
-        # UploadSourceType.EXCEL_FILE: ExcelStrategy,
-        # UploadSourceType.GOOGLE_SHEETS: GoogleSheetsStrategy,
-        # UploadSourceType.HTTP_URL: HTTPUploadStrategy,
-    }
-    
-    @classmethod
-    def create_strategy(cls, source_type: UploadSourceType) -> IUploadStrategy:
-        """Create appropriate strategy based on source type"""
-        strategy_class = cls._strategies.get(source_type)
-        if not strategy_class:
-            raise ValueError(f"No strategy available for {source_type.value}")
-        return strategy_class()
-    
-    @classmethod
-    def register_strategy(cls, source_type: UploadSourceType, strategy_class: Type[IUploadStrategy]):
-        """Register new strategy (for extending functionality)"""
-        cls._strategies[source_type] = strategy_class
-
-
 class UniversalUploadService:
     """
-    Main upload service that coordinates strategies
-    Single Responsibility: Orchestrates upload process
+    Single Responsibility: Process CSV uploads using existing proven logic
+    Open/Closed: Can be extended without modification (used by EnhancedUploadService)
     """
     
     def __init__(self, db: Session):
+        """Dependency Injection: Accept database session"""
         self.db = db
-        self.factory = StrategyFactory()
-    
-    def process_upload(
-        self,
-        content: Any,
-        source_type: UploadSourceType,
-        context: UploadContext
-    ) -> UploadResult:
-        """
-        Process upload using appropriate strategy
-        """
-        try:
-            # Create strategy
-            strategy = self.factory.create_strategy(source_type)
-            
-            # Check file size limit
-            if hasattr(content, '__len__'):
-                if len(content) > strategy.max_file_size:
-                    return UploadResult(
-                        success=False,
-                        message=f"File size exceeds maximum of {strategy.max_file_size} bytes"
-                    )
-            
-            # Process with strategy
-            result = strategy.process(content, context)
-            
-            # If successful, save to database
-            if result.success and result.processed_data:
-                self._save_to_database(result.processed_data, context)
-                
-                # Update account with detected username if found
-                if result.detected_username:
-                    self._update_account_username(context.account_id, result.detected_username)
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"Upload processing error: {str(e)}")
-            return UploadResult(
-                success=False,
-                message=f"Processing failed: {str(e)}",
-                errors=[str(e)]
-            )
     
     def detect_source_type(self, file: UploadFile) -> UploadSourceType:
-        """
-        Detect source type from file
-        """
-        filename = file.filename.lower() if file.filename else ""
-        
-        if filename.endswith('.csv'):
-            return UploadSourceType.CSV_FILE
-        elif filename.endswith(('.xlsx', '.xls')):
-            return UploadSourceType.EXCEL_FILE
-        else:
-            # Default to CSV for now
-            return UploadSourceType.CSV_FILE
+        """Detect upload source type from file"""
+        if file.filename and file.filename.endswith('.csv'):
+            return UploadSourceType.CSV
+        return UploadSourceType.UNKNOWN
     
-    def get_account_suggestions(
+    def process_upload(
         self,
         content: str,
         source_type: UploadSourceType,
         context: UploadContext
-    ) -> Dict[str, Any]:
+    ) -> UploadResult:
         """
-        Get account suggestions based on detected username
+        Process upload using existing validated logic from main.py
+        YAGNI: Reuses existing proven CSV processing code
         """
         try:
-            strategy = self.factory.create_strategy(source_type)
-            detected_username = strategy.detect_account_info(content, context)
+            # Convert string data_type to enum (from existing main.py logic)
+            try:
+                data_type_enum = DataType(context.data_type)
+            except ValueError:
+                return UploadResult(
+                    success=False,
+                    message=f"Invalid data_type: {context.data_type}",
+                    errors=[f"Invalid data_type: {context.data_type}"]
+                )
             
-            if not detected_username:
-                return {
-                    'detected_username': None,
-                    'suggested_accounts': [],
-                    'total_suggestions': 0
-                }
+            # Check account access (from existing main.py logic)
+            account = self.db.query(Account).filter(Account.id == context.account_id).first()
+            if not account:
+                return UploadResult(
+                    success=False,
+                    message="Account not found",
+                    errors=["Account not found"]
+                )
             
-            # Find matching accounts
-            suggested_accounts = self._find_matching_accounts(detected_username)
+            # Detect platform username (from existing main.py logic)
+            detected_username = CSVProcessor.detect_platform_username(
+                content,
+                filename=context.filename or "",
+                account_type=account.account_type or "ebay"
+            )
             
-            return {
-                'detected_username': detected_username,
-                'suggested_accounts': suggested_accounts,
-                'total_suggestions': len(suggested_accounts)
-            }
+            # Auto-update account with detected username (from existing main.py logic)
+            if detected_username and not account.platform_username:
+                account.platform_username = detected_username
+                self.db.commit()
+                logger.info(f"Auto-detected and saved platform username: {detected_username} for account {account.name}")
             
-        except Exception as e:
-            logger.error(f"Error getting suggestions: {str(e)}")
-            return {
-                'detected_username': None,
-                'suggested_accounts': [],
-                'total_suggestions': 0
-            }
-    
-    def _save_to_database(self, data: List[Dict[str, Any]], context: UploadContext):
-        """Save processed data to database"""
-        try:
+            # Process CSV (from existing main.py logic)
+            records, errors = CSVProcessor.process_csv_file(content, data_type_enum)
+            if errors:
+                return UploadResult(
+                    success=False,
+                    message=f"CSV processing errors: {'; '.join(errors)}",
+                    errors=errors
+                )
+            
+            # Check for duplicates (from existing main.py logic)
+            duplicate_errors = CSVProcessor.check_duplicates(records, data_type_enum)
+            if duplicate_errors:
+                return UploadResult(
+                    success=False,
+                    message=f"Duplicate data errors: {'; '.join(duplicate_errors)}",
+                    errors=duplicate_errors
+                )
+            
+            # Process each record (from existing main.py logic with enhanced validation)
             inserted_count = 0
             duplicate_count = 0
+            validation_errors = []
             
-            for record in data:
-                # Extract item_id for duplicate checking
-                if context.data_type == 'order':
-                    item_id = record.get('order_number')
-                else:
-                    item_id = record.get('item_number')
+            for i, record in enumerate(records):
+                try:
+                    item_id = CSVProcessor.extract_item_id(record, data_type_enum)
+                except ValueError as e:
+                    validation_errors.append(f"Record {i + 1}: {str(e)}")
+                    continue  # Skip invalid records
                 
-                # Check for duplicates
-                existing = self.db.query(CSVData).filter(
+                # Check if record already exists
+                existing_record = self.db.query(CSVData).filter(
                     CSVData.account_id == context.account_id,
-                    CSVData.data_type == context.data_type,
+                    CSVData.data_type == data_type_enum.value,
                     CSVData.item_id == item_id
                 ).first()
                 
-                if not existing:
-                    # Create CSVData record
-                    csv_data = CSVData(
-                        account_id=context.account_id,
-                        data_type=context.data_type,
-                        csv_row=record,
-                        item_id=item_id
-                    )
-                    self.db.add(csv_data)
-                    
-                    # Create order status if it's an order
-                    if context.data_type == 'order':
-                        self.db.flush()  # Get the CSV data ID
-                        from app.models import OrderStatus
-                        order_status = OrderStatus(
-                            csv_data_id=csv_data.id,
-                            status='pending',
-                            updated_by=context.user_id
-                        )
-                        self.db.add(order_status)
-                    
-                    inserted_count += 1
-                else:
+                if existing_record:
                     duplicate_count += 1
+                    continue
+                
+                # Create new CSV data record
+                csv_data = CSVData(
+                    account_id=context.account_id,
+                    data_type=data_type_enum.value,
+                    csv_row=record,
+                    item_id=item_id
+                )
+                self.db.add(csv_data)
+                
+                # If it's an order, create initial status
+                if data_type_enum == DataType.ORDER:
+                    self.db.flush()  # Get the CSV data ID
+                    order_status = OrderStatus(
+                        csv_data_id=csv_data.id,
+                        status="pending",
+                        updated_by=context.user_id
+                    )
+                    self.db.add(order_status)
+                
+                inserted_count += 1
+            
+            # Return validation errors if any records were invalid
+            if validation_errors:
+                return UploadResult(
+                    success=False,
+                    message=f"Validation errors found: {'; '.join(validation_errors[:3])}",
+                    errors=validation_errors
+                )
             
             self.db.commit()
-            logger.info(f"Saved {inserted_count} new records, {duplicate_count} duplicates")
+            
+            # Build success response (from existing main.py logic)
+            message = "CSV uploaded successfully"
+            if detected_username:
+                message += f" (Auto-detected seller: {detected_username})"
+            
+            return UploadResult(
+                success=True,
+                message=message,
+                inserted_count=inserted_count,
+                duplicate_count=duplicate_count,
+                total_records=len(records),
+                detected_username=detected_username
+            )
             
         except Exception as e:
-            self.db.rollback()
-            logger.error(f"Database save error: {str(e)}")
-            raise
-    
-    
-    def _update_account_username(self, account_id: int, username: str):
-        """Update account with detected username"""
-        try:
-            account = self.db.query(Account).filter(Account.id == account_id).first()
-            if account and not account.platform_username:
-                account.platform_username = username
-                self.db.commit()
-                logger.info(f"Updated account {account_id} with username {username}")
-        except Exception as e:
-            logger.error(f"Error updating account username: {str(e)}")
-    
-    def _find_matching_accounts(self, username: str) -> List[Dict[str, Any]]:
-        """Find accounts matching detected username"""
-        accounts = []
-        
-        # Exact match on platform_username
-        exact_matches = self.db.query(Account).filter(
-            Account.platform_username == username,
-            Account.is_active == True
-        ).all()
-        
-        for account in exact_matches:
-            accounts.append({
-                'id': account.id,
-                'name': account.name,
-                'ebay_username': account.ebay_username,
-                'platform_username': account.platform_username,
-                'match_type': 'exact'
-            })
-        
-        # Partial match on ebay_username if no exact matches
-        if not accounts:
-            partial_matches = self.db.query(Account).filter(
-                Account.ebay_username.contains(username),
-                Account.is_active == True
-            ).all()
-            
-            for account in partial_matches:
-                accounts.append({
-                    'id': account.id,
-                    'name': account.name,
-                    'ebay_username': account.ebay_username,
-                    'platform_username': account.platform_username,
-                    'match_type': 'partial'
-                })
-        
-        return accounts
+            logger.error(f"Upload processing failed: {e}", exc_info=True)
+            return UploadResult(
+                success=False,
+                message=f"Upload failed: {str(e)}",
+                errors=[str(e)]
+            )

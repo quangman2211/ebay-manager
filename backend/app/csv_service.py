@@ -78,8 +78,40 @@ class CSVProcessor:
         return detected_username
 
     @staticmethod
+    def _is_valid_order_number(order_number) -> bool:
+        """
+        Validate Order Number format - SOLID: Single Responsibility
+        Order Numbers must:
+        1. Not be empty or None
+        2. Contain at least one digit
+        3. Can be alphanumeric (e.g., "123456", "ORD-123456", "123456-789")
+        """
+        import re
+        import pandas as pd
+        
+        # Handle pandas NaN values
+        if pd.isna(order_number):
+            return False
+        
+        order_number_str = str(order_number).strip()
+        
+        if not order_number_str or order_number_str.lower() in ['none', 'null', 'nan', '']:
+            return False
+        
+        # Must contain at least one digit
+        if not re.search(r'\d', order_number_str):
+            return False
+        
+        # Check if it's not just whitespace or special characters
+        if not re.search(r'[a-zA-Z0-9]', order_number_str):
+            return False
+            
+        return True
+
+    @staticmethod
     def validate_order_csv(df: pd.DataFrame) -> List[str]:
         """Validate order CSV format and return error messages if any"""
+        # Real eBay column names (may have quotes)
         required_columns = [
             "Order Number", "Item Number", "Item Title", 
             "Buyer Username", "Buyer Name", "Sale Date",
@@ -87,9 +119,32 @@ class CSVProcessor:
         ]
         
         errors = []
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        # Normalize column names by stripping quotes and whitespace
+        actual_columns = [col.strip().strip('"').strip("'") for col in df.columns]
+        
+        missing_columns = []
+        for required_col in required_columns:
+            if required_col not in actual_columns:
+                missing_columns.append(required_col)
+        
         if missing_columns:
             errors.append(f"Missing required columns: {', '.join(missing_columns)}")
+            # Debug info for troubleshooting
+            errors.append(f"Available columns: {', '.join(actual_columns[:10])}...")  # Show first 10 columns
+            return errors  # Return early if columns are missing
+        
+        # Validate Order Number format (SOLID: Single Responsibility - Order Number validation)
+        if "Order Number" in actual_columns:
+            invalid_order_numbers = []
+            for index, row in df.iterrows():
+                order_number = str(row.get("Order Number", "")).strip()
+                if not CSVProcessor._is_valid_order_number(order_number):
+                    invalid_order_numbers.append(f"Row {index + 2}: '{order_number}'")  # +2 for 1-indexed and header
+            
+            if invalid_order_numbers:
+                errors.append(f"Invalid Order Numbers found (must contain digits): {'; '.join(invalid_order_numbers[:5])}")
+                if len(invalid_order_numbers) > 5:
+                    errors.append(f"... and {len(invalid_order_numbers) - 5} more invalid Order Numbers")
         
         return errors
 
@@ -140,6 +195,9 @@ class CSVProcessor:
             cleaned_csv = '\n'.join(filtered_lines)
             df = pd.read_csv(StringIO(cleaned_csv))
             
+            # Normalize column names by stripping quotes and whitespace
+            df.columns = [col.strip().strip('"').strip("'") for col in df.columns]
+            
             # Remove empty rows after header
             df = df.dropna(how='all')
             
@@ -168,16 +226,58 @@ class CSVProcessor:
 
     @staticmethod
     def extract_item_id(record: Dict[str, Any], data_type: DataType) -> str:
-        """Extract the unique identifier from a CSV record"""
+        """
+        Extract the unique identifier from a CSV record with validation
+        SOLID: Single Responsibility - Extract and validate item ID
+        """
+        import pandas as pd
+        
         if data_type == DataType.ORDER:
-            return str(record.get("Order Number", ""))
+            order_number_raw = record.get("Order Number", "")
+            
+            # Handle pandas NaN values
+            if pd.isna(order_number_raw):
+                raise ValueError(f"Invalid Order Number: 'NaN' (must contain digits)")
+            
+            order_number = str(order_number_raw).strip()
+            # Validate Order Number before extracting (Dependency Inversion: rely on validation abstraction)
+            if not CSVProcessor._is_valid_order_number(order_number_raw):
+                raise ValueError(f"Invalid Order Number: '{order_number}' (must contain digits)")
+            return order_number
         else:  # LISTING
-            return str(record.get("Item number", ""))
+            item_number_raw = record.get("Item number", "")
+            
+            # Handle pandas NaN values
+            if pd.isna(item_number_raw):
+                raise ValueError(f"Invalid Item Number: 'NaN' (cannot be empty)")
+                
+            item_number = str(item_number_raw).strip()
+            if not item_number or item_number.lower() in ['none', 'null', 'nan', '']:
+                raise ValueError(f"Invalid Item Number: '{item_number}' (cannot be empty)")
+            return item_number
 
     @staticmethod
     def check_duplicates(records: List[Dict[str, Any]], data_type: DataType) -> List[str]:
-        """Check for duplicate item IDs in the records"""
-        item_ids = [CSVProcessor.extract_item_id(record, data_type) for record in records]
+        """
+        Check for duplicate item IDs in the records
+        SOLID: Single Responsibility - Only check duplicates, validation is done elsewhere
+        """
+        errors = []
+        item_ids = []
+        
+        # Extract item IDs with error handling for validation
+        for i, record in enumerate(records):
+            try:
+                item_id = CSVProcessor.extract_item_id(record, data_type)
+                item_ids.append(item_id)
+            except ValueError as e:
+                errors.append(f"Record {i + 1}: {str(e)}")
+        
+        # Return early if there are validation errors
+        if errors:
+            return errors
+        
+        # Check for duplicates
         duplicates = []
         seen = set()
         
@@ -187,6 +287,6 @@ class CSVProcessor:
             seen.add(item_id)
         
         if duplicates:
-            return [f"Duplicate item IDs found: {', '.join(duplicates)}"]
+            errors.append(f"Duplicate item IDs found: {', '.join(duplicates)}")
         
-        return []
+        return errors

@@ -15,8 +15,8 @@ export interface Account {
   is_active: boolean;
   created_at: string;
   // Sprint 7 enhancements - REDESIGNED STATUS FIELDS
-  account_type?: 'ebay' | 'etsy';
-  connection_status?: 'authenticated' | 'pending' | 'expired' | 'failed';
+  account_type?: 'ebay' | 'etsy' | 'system';
+  connection_status?: 'authenticated' | 'pending' | 'expired' | 'failed' | 'system';
   last_sync_at?: string;
   data_processing_enabled?: boolean;
   settings?: Record<string, any>;
@@ -119,7 +119,7 @@ export interface AccountSwitchResponse {
   active_account: {
     id: number;
     name: string;
-    ebay_username: string;
+    platform_username: string;
   };
 }
 

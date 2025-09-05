@@ -17,6 +17,8 @@ from app.schemas import (
     AccountSettingsCreate, AccountSettingsUpdate,
     PermissionLevel, ConnectionStatus, AccountType
 )
+from app.services.guest_account_service import GuestAccountService
+from app.constants import DeletionAction
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ class AccountService:
     
     def __init__(self, db: Session):
         self.db = db
+        self.guest_service = GuestAccountService(db)
     
     def create_account(
         self, 
@@ -234,13 +237,92 @@ class AccountService:
             user_permissions=user_permissions
         )
     
+    def delete_account_with_options(
+        self,
+        account_id: int,
+        user: User,
+        action: str = DeletionAction.TRANSFER_TO_GUEST
+    ) -> Dict[str, Any]:
+        """
+        Delete account with data preservation options
+        
+        Args:
+            account_id: Account ID to delete
+            user: User performing deletion
+            action: 'transfer' to preserve data, 'delete' to permanently delete
+            
+        Returns:
+            Operation result summary
+            
+        Raises:
+            PermissionError: If user lacks admin permission
+            ValueError: If account not found or operation invalid
+        """
+        # Get account and verify admin permissions
+        account = self._get_account_with_permission_check(account_id, user, PermissionLevel.ADMIN)
+        
+        # Prevent deletion of GUEST account
+        if self.guest_service.is_guest_account(account):
+            raise ValueError("GUEST account cannot be deleted")
+        
+        # Validate deletion
+        validation = self.guest_service.validate_account_deletion(account)
+        if not validation["can_delete"]:
+            raise ValueError(validation["reason"])
+        
+        # For active accounts: always deactivate first
+        if account.is_active:
+            account.is_active = False
+            self.db.commit()
+            self.db.refresh(account)
+            logger.info(f"Account deactivated: {account.name} (ID: {account.id}) by user {user.username}")
+            
+            return {
+                "action": "deactivated",
+                "message": f"Account '{account.name}' has been deactivated",
+                "account_id": account_id,
+                "account_name": account.name,
+                "data_impact": validation["data_impact"],
+                "next_action": "Account is now inactive. Delete again to choose final data handling."
+            }
+        
+        # For inactive accounts: handle based on action parameter
+        if action == DeletionAction.TRANSFER_TO_GUEST:
+            # Transfer data to GUEST account
+            transfer_result = self.guest_service.transfer_account_data(account, user.id)
+            logger.info(f"Account data transferred to GUEST: {account.name} (ID: {account.id})")
+            
+            return {
+                "action": "transferred",
+                "message": f"Account '{account.name}' deleted and data transferred to GUEST account",
+                "account_id": account_id,
+                "account_name": account.name,
+                "transfer_summary": transfer_result
+            }
+            
+        elif action == DeletionAction.PERMANENT_DELETE:
+            # Permanently delete everything
+            deletion_result = self._hard_delete_account(account, user)
+            logger.info(f"Account permanently deleted: {account.name} (ID: {account.id})")
+            
+            return {
+                "action": "deleted",
+                "message": f"Account '{account.name}' and all data permanently deleted",
+                "account_id": account_id,
+                "account_name": account.name,
+                "deletion_summary": deletion_result
+            }
+        
+        else:
+            raise ValueError(f"Invalid deletion action: {action}")
+    
     def deactivate_account(
         self,
         account_id: int,
         user: User
     ) -> Account:
         """
-        Deactivate an account (soft delete)
+        Legacy method for backward compatibility - deactivates account
         
         Args:
             account_id: Account ID to deactivate
@@ -248,19 +330,87 @@ class AccountService:
             
         Returns:
             Deactivated account
-            
-        Raises:
-            PermissionError: If user lacks admin permission
         """
-        # Get account and verify admin permissions
-        account = self._get_account_with_permission_check(account_id, user, PermissionLevel.ADMIN)
+        result = self.delete_account_with_options(account_id, user, "deactivate")
         
-        account.is_active = False
-        self.db.commit()
-        self.db.refresh(account)
-        
-        logger.info(f"Account deactivated: {account.name} (ID: {account.id}) by user {user.username}")
+        # Return the account for compatibility
+        account = self.db.query(Account).filter(Account.id == account_id).first()
         return account
+    
+    def _hard_delete_account(
+        self,
+        account: Account,
+        user: User
+    ) -> Dict[str, Any]:
+        """
+        Permanently delete account and all related data
+        
+        Args:
+            account: Account to delete permanently
+            user: User performing deletion
+            
+        Returns:
+            Deletion summary
+        """
+        from app.models import CSVData, OrderStatus, UserAccountPermission, AccountSettings
+        
+        logger.info(f"Starting hard delete for account {account.name} (ID: {account.id})")
+        
+        deletion_summary = {
+            "account_id": account.id,
+            "account_name": account.name,
+            "deleted_orders": 0,
+            "deleted_listings": 0,
+            "deleted_order_statuses": 0,
+            "deleted_permissions": 0,
+            "deleted_settings": 0,
+            "deletion_timestamp": None
+        }
+        
+        # Delete related data in proper order (respecting foreign key constraints)
+        
+        # 1. Delete order statuses (references csv_data)
+        order_statuses = self.db.query(OrderStatus).join(CSVData).filter(
+            CSVData.account_id == account.id
+        ).all()
+        for order_status in order_statuses:
+            self.db.delete(order_status)
+        deletion_summary["deleted_order_statuses"] = len(order_statuses)
+        
+        # 2. Delete CSV data (orders and listings)
+        csv_data = self.db.query(CSVData).filter(CSVData.account_id == account.id).all()
+        for csv_record in csv_data:
+            if csv_record.data_type == "order":
+                deletion_summary["deleted_orders"] += 1
+            elif csv_record.data_type == "listing":
+                deletion_summary["deleted_listings"] += 1
+            self.db.delete(csv_record)
+        
+        # 3. Delete account permissions
+        permissions = self.db.query(UserAccountPermission).filter(
+            UserAccountPermission.account_id == account.id
+        ).all()
+        for permission in permissions:
+            self.db.delete(permission)
+        deletion_summary["deleted_permissions"] = len(permissions)
+        
+        # 4. Delete account settings
+        settings = self.db.query(AccountSettings).filter(
+            AccountSettings.account_id == account.id
+        ).all()
+        for setting in settings:
+            self.db.delete(setting)
+        deletion_summary["deleted_settings"] = len(settings)
+        
+        # 5. Finally delete the account itself
+        self.db.delete(account)
+        self.db.commit()
+        
+        from datetime import datetime
+        deletion_summary["deletion_timestamp"] = datetime.now().isoformat()
+        
+        logger.info(f"Hard delete completed: {deletion_summary}")
+        return deletion_summary
     
     def update_account_settings(
         self,

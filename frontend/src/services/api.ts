@@ -69,8 +69,10 @@ export const usersAPI = {
 };
 
 export const accountsAPI = {
-  getAccounts: async (): Promise<Account[]> => {
-    const response = await api.get(API_ENDPOINTS.ACCOUNTS.LIST);
+  getAccounts: async (includeInactive: boolean = false): Promise<Account[]> => {
+    const response = await api.get(API_ENDPOINTS.ACCOUNTS.LIST, {
+      params: includeInactive ? { include_inactive: true } : {}
+    });
     return response.data;
   },
 
@@ -90,8 +92,51 @@ export const accountsAPI = {
     return response.data;
   },
 
-  deactivateAccount: async (accountId: number): Promise<{ message: string }> => {
-    const response = await api.delete(API_ENDPOINTS.ACCOUNTS.DELETE(accountId));
+  deactivateAccount: async (accountId: number, action: string = 'transfer'): Promise<{
+    action: string;
+    message: string;
+    account_id: number;
+    account_name: string;
+    data_impact?: any;
+    transfer_summary?: any;
+    deletion_summary?: any;
+    next_action?: string;
+  }> => {
+    const response = await api.delete(API_ENDPOINTS.ACCOUNTS.DELETE(accountId), {
+      params: { action }
+    });
+    return response.data;
+  },
+
+  getDeletionImpact: async (accountId: number): Promise<{
+    account_id: number;
+    account_name: string;
+    is_active: boolean;
+    can_delete: boolean;
+    reason?: string;
+    data_impact?: {
+      orders: number;
+      listings: number;
+      permissions: number;
+      settings: number;
+      total_records: number;
+    };
+    is_guest_account: boolean;
+  }> => {
+    const response = await api.get(`/accounts/${accountId}/deletion-impact`);
+    return response.data;
+  },
+
+  getGuestAccountSummary: async (): Promise<{
+    guest_account_id: number;
+    guest_account_name: string;
+    total_orders: number;
+    total_listings: number;
+    total_records: number;
+    original_accounts_count: number;
+    original_accounts: string[];
+  }> => {
+    const response = await api.get('/guest-account/summary');
     return response.data;
   },
 
@@ -156,12 +201,39 @@ export const csvAPI = {
     return response.data;
   },
 
+  uploadCSVEnhanced: async (file: File, accountId: number, dataType: 'order' | 'listing'): Promise<{
+    success: boolean;
+    upload_id?: string;
+    message: string;
+    inserted_count?: number;
+    duplicate_count?: number;
+    total_records?: number;
+    detected_username?: string;
+    error?: {
+      code: string;
+      message: string;
+      suggestions: string[];
+    };
+  }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('account_id', accountId.toString());
+    formData.append('data_type', dataType);
+    
+    const response = await api.post(API_ENDPOINTS.CSV.UPLOAD_ENHANCED, formData, {
+      headers: {
+        'Content-Type': HTTP_HEADERS.CONTENT_TYPE.FORM_DATA,
+      },
+      timeout: REQUEST_CONFIG.CSV_UPLOAD_TIMEOUT,
+    });
+    return response.data;
+  },
+
   suggestAccountsForCSV: async (file: File): Promise<{
     detected_username: string | null;
     suggested_accounts: Array<{
       id: number;
       name: string;
-      ebay_username: string | null;
       platform_username: string | null;
       match_type: 'exact' | 'partial';
     }>;
@@ -175,6 +247,22 @@ export const csvAPI = {
         'Content-Type': HTTP_HEADERS.CONTENT_TYPE.FORM_DATA,
       },
       timeout: REQUEST_CONFIG.CSV_UPLOAD_TIMEOUT,
+    });
+    return response.data;
+  },
+
+  getUploadProgress: async (uploadId: string): Promise<{
+    success: boolean;
+    upload_id?: string;
+    filename?: string;
+    state?: 'processing' | 'completed' | 'failed';
+    message?: string;
+    progress_percent?: number;
+    started_at?: string;
+    error?: string;
+  }> => {
+    const response = await api.get(API_ENDPOINTS.UPLOAD.PROGRESS(uploadId), {
+      timeout: REQUEST_CONFIG.DEFAULT_TIMEOUT,
     });
     return response.data;
   },

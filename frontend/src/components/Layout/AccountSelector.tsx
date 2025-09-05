@@ -235,7 +235,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
                   fontWeight: 600,
                 }}
               >
-                {currentAccount.name.charAt(0).toUpperCase()}
+                {currentAccount?.name?.charAt(0)?.toUpperCase() || '?'}
               </Avatar>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
@@ -248,20 +248,20 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {currentAccount.name}
+                  {currentAccount?.name || 'Unknown Account'}
                 </Typography>
                 {!compact && (
                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.25 }}>
-                    {getAccountStatusIcon(currentAccount)}
+                    {currentAccount && getAccountStatusIcon(currentAccount)}
                     <Typography
                       variant="caption"
                       sx={{
                         ml: 0.5,
-                        color: currentAccount.is_active ? colors.success[600] : colors.error[600],
+                        color: currentAccount?.is_active ? colors.success[600] : colors.error[600],
                         fontWeight: 500,
                       }}
                     >
-                      {currentAccount.is_active ? 'Active' : 'Inactive'}
+                      {currentAccount?.is_active ? 'Active' : 'Inactive'}
                     </Typography>
                   </Box>
                 )}
@@ -269,8 +269,8 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
               {compact && (
                 <Chip
                   size="small"
-                  label={currentAccount.is_active ? 'Active' : 'Inactive'}
-                  color={getAccountStatusColor(currentAccount) as any}
+                  label={currentAccount?.is_active ? 'Active' : 'Inactive'}
+                  color={(currentAccount && getAccountStatusColor(currentAccount)) as any}
                   sx={{ ml: spacing.sm, height: 20, fontSize: 10 }}
                 />
               )}
@@ -373,7 +373,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
                       fontWeight: 600,
                     }}
                   >
-                    {account.name.charAt(0).toUpperCase()}
+                    {account?.name?.charAt(0)?.toUpperCase() || '?'}
                   </Avatar>
                 </ListItemIcon>
                 <ListItemText
@@ -456,7 +456,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
                       fontWeight: 600,
                     }}
                   >
-                    {account.name.charAt(0).toUpperCase()}
+                    {account?.name?.charAt(0)?.toUpperCase() || '?'}
                   </Avatar>
                 </ListItemIcon>
                 <ListItemText

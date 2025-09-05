@@ -12,6 +12,7 @@
 export const PLATFORMS = {
   EBAY: 'ebay',
   ETSY: 'etsy',
+  SYSTEM: 'system',
 } as const;
 
 export type Platform = typeof PLATFORMS[keyof typeof PLATFORMS];
@@ -22,6 +23,7 @@ export const CONNECTION_STATUSES = {
   PENDING: 'pending',
   EXPIRED: 'expired',
   FAILED: 'failed',
+  SYSTEM: 'system',
 } as const;
 
 export type ConnectionStatus = typeof CONNECTION_STATUSES[keyof typeof CONNECTION_STATUSES];
@@ -41,11 +43,13 @@ export const CONNECTION_STATUS_LABELS: Record<ConnectionStatus, string> = {
   [CONNECTION_STATUSES.PENDING]: 'Pending',
   [CONNECTION_STATUSES.EXPIRED]: 'Expired',
   [CONNECTION_STATUSES.FAILED]: 'Failed',
+  [CONNECTION_STATUSES.SYSTEM]: 'System',
 };
 
 export const PLATFORM_LABELS: Record<Platform, string> = {
   [PLATFORMS.EBAY]: 'eBay',
   [PLATFORMS.ETSY]: 'Etsy',
+  [PLATFORMS.SYSTEM]: 'System',
 };
 
 // Status Color Mappings for MUI Components
@@ -54,6 +58,7 @@ export const CONNECTION_STATUS_COLORS: Record<ConnectionStatus, 'success' | 'war
   [CONNECTION_STATUSES.PENDING]: 'warning',
   [CONNECTION_STATUSES.EXPIRED]: 'error',
   [CONNECTION_STATUSES.FAILED]: 'error',
+  [CONNECTION_STATUSES.SYSTEM]: 'default',
 };
 
 // Helper Functions

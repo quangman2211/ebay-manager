@@ -264,7 +264,7 @@ describe('AccountContext', () => {
 
       const updatedAccount = result.current.state.accounts.find(a => a.id === accounts[0].id);
       expect(updatedAccount?.name).toBe('Refreshed Name');
-      expect(updatedAccount?.ebay_username).toBe(accounts[0].ebay_username); // Other props preserved
+      expect(updatedAccount?.platform_username).toBe(accounts[0].platform_username); // Other props preserved
     });
 
     it('should refresh current account when it matches', () => {

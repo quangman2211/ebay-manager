@@ -15,7 +15,7 @@ import {
 } from '@mui/icons-material';
 import { Account } from '../../types';
 
-type ConnectionStatus = 'authenticated' | 'pending' | 'expired' | 'failed';
+type ConnectionStatus = 'authenticated' | 'pending' | 'expired' | 'failed' | 'system';
 
 interface AccountStatusIndicatorProps {
   account: Account;
@@ -62,6 +62,13 @@ const AccountStatusIndicator: React.FC<AccountStatusIndicatorProps> = ({
           icon: <ErrorIcon />,
           label: 'Failed',
           description: 'Connection authentication failed',
+        };
+      case 'system':
+        return {
+          color: 'info' as const,
+          icon: <CheckCircleIcon />,
+          label: 'System',
+          description: 'System account - always available',
         };
       default:
         return {

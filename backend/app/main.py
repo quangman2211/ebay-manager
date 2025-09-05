@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import List
+from typing import List, Dict, Any
 import logging
+import asyncio
 
 from app.database import get_db
 from app.models import User, Account, CSVData, OrderStatus, UserAccountPermission, AccountSettings
@@ -18,12 +19,16 @@ from app.schemas import (
     BulkPermissionResponse, AccountSwitchRequest, PermissionLevel
 )
 from app.services import AccountService, PermissionService, PermissionError, AccountPermissionError
+from app.services.guest_account_service import GuestAccountService
 from app.auth import (
     authenticate_user, create_access_token, get_current_active_user,
     get_password_hash
 )
 from app.config import settings
 from app.csv_service import CSVProcessor
+from app.services.upload_service import UniversalUploadService
+from app.services.enhanced_upload_service import EnhancedUploadService
+from app.interfaces.upload_strategy import UploadContext, UploadSourceType
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +36,72 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="eBay Manager API", version="1.0.0")
 
-# Add CORS middleware
+
+# Application startup event - Initialize GUEST account
+@app.on_event("startup")
+async def initialize_guest_account():
+    """
+    Initialize GUEST account on application startup
+    Ensures GUEST account exists for account deletion operations
+    """
+    try:
+        from app.database import SessionLocal
+        from app.models import User
+        
+        logger.info("Initializing GUEST account on startup...")
+        
+        # Create database session
+        db = SessionLocal()
+        try:
+            # Verify admin user exists (required for GUEST account)
+            admin_user = db.query(User).filter(User.id == 1).first()
+            if not admin_user:
+                logger.warning("Admin user (ID: 1) not found. GUEST account creation skipped.")
+                logger.info("Please run 'python3 app/init_db.py' to create admin user first.")
+                return
+            
+            # Initialize GUEST account service and create account if needed
+            guest_service = GuestAccountService(db)
+            guest_account = guest_service.get_guest_account()
+            
+            if guest_account:
+                logger.info(f"✅ GUEST account exists (ID: {guest_account.id}) - Ready for account deletions")
+            else:
+                # GUEST account doesn't exist, create it
+                logger.info("🔄 GUEST account not found, creating...")
+                
+                from app.models import Account
+                from app.constants import GUEST_ACCOUNT_CONFIG
+                
+                # Create GUEST account
+                new_guest_account = Account(
+                    user_id=GUEST_ACCOUNT_CONFIG["USER_ID"],
+                    platform_username=GUEST_ACCOUNT_CONFIG["PLATFORM_USERNAME"],
+                    name=GUEST_ACCOUNT_CONFIG["NAME"],
+                    is_active=True,  # Always active for system account
+                    account_type=GUEST_ACCOUNT_CONFIG["ACCOUNT_TYPE"],
+                    connection_status=GUEST_ACCOUNT_CONFIG["CONNECTION_STATUS"],
+                    data_processing_enabled=False,  # GUEST account doesn't process new data
+                    settings='{"is_guest_account": true, "is_deletable": false, "is_editable": false}',
+                    performance_metrics='{"description": "System account for preserving data from deleted accounts"}'
+                )
+                
+                db.add(new_guest_account)
+                db.commit()
+                db.refresh(new_guest_account)
+                
+                logger.info(f"✅ GUEST account created successfully (ID: {new_guest_account.id})")
+                logger.info(f"📋 GUEST account details: {new_guest_account.name} - {new_guest_account.platform_username}")
+                
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize GUEST account: {e}")
+        logger.error("⚠️  Account deletion operations may fail until GUEST account is created manually")
+        logger.info("💡 Manual fix: Run 'python3 app/init_guest_account.py'")
+
+# Add CORS middleware  
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:3004"],  # React frontends
@@ -39,6 +109,45 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/api/v1/health/guest-account")
+def check_guest_account_health(db: Session = Depends(get_db)):
+    """
+    Health check endpoint for GUEST account
+    Verifies that GUEST account exists and is properly configured
+    """
+    try:
+        guest_service = GuestAccountService(db)
+        guest_account = guest_service.get_guest_account()
+        
+        if guest_account:
+            return {
+                "status": "healthy",
+                "guest_account_id": guest_account.id,
+                "guest_account_name": guest_account.name,
+                "platform_username": guest_account.platform_username,
+                "is_active": guest_account.is_active,
+                "account_deletion_ready": True,
+                "message": "GUEST account is ready for account deletion operations"
+            }
+        else:
+            return {
+                "status": "unhealthy",
+                "guest_account_id": None,
+                "account_deletion_ready": False,
+                "message": "GUEST account not found. Account deletion operations will fail.",
+                "recommended_action": "Run 'python3 app/init_guest_account.py' or restart the application"
+            }
+    except Exception as e:
+        logger.error(f"Error checking GUEST account health: {e}")
+        return {
+            "status": "error",
+            "guest_account_id": None,
+            "account_deletion_ready": False,
+            "message": f"Error checking GUEST account: {str(e)}",
+            "recommended_action": "Check application logs and database connectivity"
+        }
 
 
 @app.post("/api/v1/register", response_model=UserResponse)
@@ -86,18 +195,26 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @app.get("/api/v1/accounts", response_model=List[AccountResponse])
 def get_accounts(
+    include_inactive: bool = False,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
+    """Get accounts with optional inclusion of inactive accounts"""
     if current_user.role == "admin":
         # Admin can see all accounts
-        accounts = db.query(Account).filter(Account.is_active == True).all()
+        if include_inactive:
+            accounts = db.query(Account).all()
+        else:
+            accounts = db.query(Account).filter(Account.is_active == True).all()
     else:
         # Staff can only see their assigned accounts
-        accounts = db.query(Account).filter(
-            Account.user_id == current_user.id,
-            Account.is_active == True
-        ).all()
+        if include_inactive:
+            accounts = db.query(Account).filter(Account.user_id == current_user.id).all()
+        else:
+            accounts = db.query(Account).filter(
+                Account.user_id == current_user.id,
+                Account.is_active == True
+            ).all()
     return accounts
 
 
@@ -205,6 +322,83 @@ def create_account(
     return db_account
 
 
+# Enhanced Upload Endpoint - SOLID Compliant
+# Single Responsibility: Extends existing CSV upload with progress tracking
+# Open/Closed: Uses existing upload service without modification
+
+@app.post("/api/v1/csv/upload-enhanced")
+def upload_csv_enhanced(
+    file: UploadFile = File(...),
+    account_id: int = Form(...),
+    data_type: str = Form(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """Enhanced CSV upload with progress tracking - YAGNI compliant"""
+    try:
+        # Validate inputs (same as existing endpoint)
+        try:
+            data_type_enum = DataType(data_type)
+        except ValueError:
+            return {"success": False, "error": f"Invalid data_type: {data_type}"}
+        
+        # Check account access (reuse existing logic)
+        account = db.query(Account).filter(Account.id == account_id).first()
+        if not account:
+            return {"success": False, "error": "Account not found"}
+        
+        if current_user.role != "admin" and account.user_id != current_user.id:
+            return {"success": False, "error": "Not authorized to upload to this account"}
+        
+        # Read file content
+        try:
+            content = file.file.read().decode('utf-8')
+        except UnicodeDecodeError:
+            return {"success": False, "error": "File must be UTF-8 encoded"}
+        
+        # Use enhanced service (Dependency Inversion)
+        upload_service = UniversalUploadService(db)
+        enhanced_service = EnhancedUploadService(upload_service)
+        
+        # Create upload context (reuse existing structure)
+        context = UploadContext(
+            account_id=account_id,
+            data_type=data_type,
+            user_id=current_user.id,
+            filename=file.filename
+        )
+        
+        # Detect source type (reuse existing logic)
+        source_type = upload_service.detect_source_type(file)
+        
+        # Process with progress tracking
+        result = enhanced_service.upload_with_progress(
+            content=content,
+            filename=file.filename or "unknown.csv",
+            source_type=source_type,
+            context=context
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Enhanced upload failed: {e}", exc_info=True)
+        return {"success": False, "error": f"Upload failed: {str(e)}"}
+
+
+@app.get("/api/v1/upload/progress/{upload_id}")
+def get_upload_progress(
+    upload_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get upload progress - Single Responsibility"""
+    upload_service = UniversalUploadService(db)
+    enhanced_service = EnhancedUploadService(upload_service)
+    
+    return enhanced_service.get_upload_progress(upload_id)
+
+
 @app.post("/api/v1/csv/upload")
 def upload_csv(
     file: UploadFile = File(...),
@@ -273,12 +467,17 @@ def upload_csv(
             detail=f"Duplicate data errors: {'; '.join(duplicate_errors)}"
         )
     
-    # Process each record
+    # Process each record with enhanced validation
     inserted_count = 0
     duplicate_count = 0
+    validation_errors = []
     
-    for record in records:
-        item_id = CSVProcessor.extract_item_id(record, data_type_enum)
+    for i, record in enumerate(records):
+        try:
+            item_id = CSVProcessor.extract_item_id(record, data_type_enum)
+        except ValueError as e:
+            validation_errors.append(f"Record {i + 1}: {str(e)}")
+            continue  # Skip invalid records
         
         # Check if record already exists
         existing_record = db.query(CSVData).filter(
@@ -311,6 +510,14 @@ def upload_csv(
             db.add(order_status)
         
         inserted_count += 1
+    
+    # Handle validation errors
+    if validation_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid record formats: {'; '.join(validation_errors[:3])}" + 
+                   (f" (and {len(validation_errors) - 3} more)" if len(validation_errors) > 3 else "")
+        )
     
     db.commit()
     
@@ -536,16 +743,68 @@ def get_account_details(
 
 
 @app.delete("/api/v1/accounts/{account_id}")
-def deactivate_account(
+def delete_account(
+    account_id: int,
+    action: str = "transfer",  # 'transfer' or 'delete'
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete account with data preservation options
+    
+    - For active accounts: deactivates first
+    - For inactive accounts: 
+      - action='transfer': move data to GUEST account (default)
+      - action='delete': permanently delete all data
+    """
+    try:
+        account_service = AccountService(db)
+        
+        # Use the new delete method with options
+        result = account_service.delete_account_with_options(account_id, current_user, action)
+        
+        return result
+        
+    except (PermissionError, AccountPermissionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@app.get("/api/v1/accounts/{account_id}/deletion-impact")
+def get_deletion_impact(
     account_id: int,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Deactivate an account (soft delete)"""
+    """Get impact summary for account deletion"""
     try:
+        from app.services.guest_account_service import GuestAccountService
+        
+        # Check if account exists and user has access
         account_service = AccountService(db)
-        account_service.deactivate_account(account_id, current_user)
-        return {"message": "Account deactivated successfully"}
+        account = account_service._get_account_with_permission_check(account_id, current_user, PermissionLevel.VIEW)
+        
+        # Get deletion impact
+        guest_service = GuestAccountService(db)
+        validation = guest_service.validate_account_deletion(account)
+        
+        return {
+            "account_id": account_id,
+            "account_name": account.name,
+            "is_active": account.is_active,
+            "can_delete": validation["can_delete"],
+            "reason": validation.get("reason"),
+            "data_impact": validation.get("data_impact"),
+            "is_guest_account": guest_service.is_guest_account(account)
+        }
+        
     except (PermissionError, AccountPermissionError) as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -555,6 +814,32 @@ def deactivate_account(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
+        )
+
+
+@app.get("/api/v1/guest-account/summary")
+def get_guest_account_summary(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get summary of data stored in GUEST account (admin only)"""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
+    try:
+        from app.services.guest_account_service import GuestAccountService
+        guest_service = GuestAccountService(db)
+        summary = guest_service.get_guest_account_summary()
+        
+        return summary
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting GUEST account summary: {str(e)}"
         )
 
 

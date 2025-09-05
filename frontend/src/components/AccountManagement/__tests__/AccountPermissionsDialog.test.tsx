@@ -28,7 +28,7 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 // Mock the useAccountPermissions hook
-const mockUseAccountPermissions = {
+const mockUseAccountPermissionsReturn = {
   permissions: [] as UserAccountPermission[],
   loading: false,
   error: null,
@@ -49,7 +49,7 @@ describe('AccountPermissionsDialog', () => {
     mockAccount = createMockAccount({
       id: 1,
       name: 'Test Store',
-      ebay_username: 'teststore',
+      platform_username: 'teststore',
     });
 
     mockPermissions = createMockPermissions(1, 3);
